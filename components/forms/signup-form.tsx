@@ -70,7 +70,7 @@ export function SignupForm({
         values.name
       );
       if (response.success) {
-        toast.success(response.message);
+        toast.success("Cuenta creada con éxito. Por favor, verifica tu correo electrónico.");
         router.push("/dashboard");
       } else {
         toast.error(response.message);
