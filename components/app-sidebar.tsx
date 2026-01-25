@@ -2,7 +2,6 @@ import * as React from "react"
 import { ChevronRight } from "lucide-react"
 
 import { SearchForm } from "@/components/search-form"
-import { VersionSwitcher } from "@/components/version-switcher"
 import {
   Collapsible,
   CollapsibleContent,
@@ -21,9 +20,11 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 import { getNotebooks } from "@/server/notebooks"
+import Image from "next/image"
+import { Separator } from "./ui/separator"
 
-export async function AppSidebar({ 
-  ...props 
+export async function AppSidebar({
+  ...props
 }: React.ComponentProps<typeof Sidebar>) {
   const notebooks = await getNotebooks();
 
@@ -35,7 +36,7 @@ export async function AppSidebar({
         url: `/dashboard/${notebook.id}`,
         items: notebook.notes.map((note) => ({
           title: note.title,
-          url: `/dashboard/note/${note.id}`,
+          url: `/dashboard/notebook/${notebook.id}/note/${note.id}`,
         })),
       })) ?? []),
     ],
@@ -43,10 +44,10 @@ export async function AppSidebar({
   return (
     <Sidebar {...props}>
       <SidebarHeader>
-        <VersionSwitcher
-          versions={data.versions}
-          defaultVersion={data.versions[0]}
-        />
+        <div className="flex items-center gap-2">
+          <Image src="/noteforge-logo.png" alt="Logo" width={32} height={32} />
+          <h2 className="text-xl">Pagefall</h2>
+        </div>
         <SearchForm />
       </SidebarHeader>
       <SidebarContent className="gap-0">
