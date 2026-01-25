@@ -13,7 +13,7 @@ export function Logout() {
     };
 
     return (
-        <Button variant={"outline"} onClick={handleLogout}>
+        <Button variant={"destructive"} onClick={handleLogout}>
             Cerrar sesión
         </Button>
     )
