@@ -82,6 +82,13 @@ export function SignupForm({
     }
   }
 
+  const signUp = async () => {
+    const data = await authClient.signIn.social({
+      provider: "google",
+      callbackURL: "/dashboard",
+    });
+  };
+
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
@@ -176,7 +183,7 @@ export function SignupForm({
                   <Button
                     variant="outline"
                     className="w-full"
-                    onClick={signIn}
+                    onClick={signUp}
                     type="button"
                   >
                     Regístrate con Google

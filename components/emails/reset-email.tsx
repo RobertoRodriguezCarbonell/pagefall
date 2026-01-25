@@ -26,7 +26,7 @@ const PasswordResetEmail = ({
     <Html lang="en" dir="ltr">
       <Tailwind>
         <Head />
-        <Body className="bg-gray-100 font-sans py-[40px]">
+        <Body className="font-sans py-[40px]">
           <Container className="bg-white rounded-[8px] shadow-sm max-w-[600px] mx-auto p-[40px]">
             {/* Header */}
             <Section className="text-center mb-[32px]">
