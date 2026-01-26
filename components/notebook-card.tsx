@@ -10,22 +10,23 @@ import {
 import { Button } from "@/components/ui/button"
 import { Notebook } from "@/db/schema"
 import Link from "next/link";
-import { Loader2, Trash2 } from "lucide-react";
+import { ArrowRight, Loader2, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { deleteNotebook } from "@/server/notebooks";
 import { toast } from "sonner";
 import { useState } from "react";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { Separator } from "./ui/separator";
 
 interface NotebookCardProps {
     notebook: Notebook;
@@ -57,22 +58,30 @@ export default function NotebookCard({ notebook }: NotebookCardProps) {
     };
 
     return (
-        <Card className="w-full">
+        <Card className="w-full gap-2">
             <CardHeader>
-                <CardTitle>{notebook.name}</CardTitle>
+                <div className="flex justify-between items-center">
+                    <div className="flex-col-1">
+                        <CardTitle className="text-xl font-semibold">{notebook.name}</CardTitle>
+                        <span>{notebook.notes?.length ?? 0} notes</span>
+                    </div>
+                    <Link href={`/dashboard/notebook/${notebook.id}`}>
+                        <Button variant={"outline"} className="ml-auto p-0">
+                            <ArrowRight className="size-4" />
+                        </Button>
+                    </Link>
+                </div>
             </CardHeader>
-            <CardContent>
-                <p>{notebook.notes?.length ?? 0} notes</p>
-            </CardContent>
-            <CardFooter className="flex flex-col gap-y-4">
-                <Link className="w-full" href={`/dashboard/notebook/${notebook.id}`}>
-                    <Button className="w-full" variant="outline">View Notebook</Button>
+            <Separator />
+            <CardContent className="pb-2" />
+            <CardFooter className="flex gap-x-4">
+                <Link className="flex-1" href={`/dashboard/notebook/${notebook.id}`}>
+                    <Button className="w-full">View Notebook</Button>
                 </Link>
                 <AlertDialog open={open} onOpenChange={setOpen}>
                     <AlertDialogTrigger asChild>
-                        <Button className="w-full">
-                            <Trash2 className="size-4 mr-2" />
-                            Delete Notebook
+                        <Button variant="outline" size="icon">
+                            <Trash2 className="size-4" />
                         </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
