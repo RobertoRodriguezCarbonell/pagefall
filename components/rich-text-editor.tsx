@@ -88,32 +88,86 @@ const RichTextEditor = ({ content, noteId, noteTitle }: RichTextEditorProps) => 
       clone.style.left = '-9999px';
       clone.style.top = '0';
       clone.style.width = editorElement.offsetWidth + 'px';
-      
-      // Aplicar estilos de modo claro al clon
-      clone.style.color = '#171717';
       clone.style.backgroundColor = '#ffffff';
       
-      // Aplicar estilos de modo claro a todos los elementos hijos
-      const allElements = clone.querySelectorAll('*');
-      allElements.forEach((el) => {
-        const htmlEl = el as HTMLElement;
-        htmlEl.classList.remove('dark');
-        
-        // Forzar colores de modo claro
-        if (htmlEl.tagName === 'CODE') {
-          htmlEl.style.backgroundColor = '#f5f5f5';
-          htmlEl.style.color = '#171717';
-        } else if (htmlEl.tagName === 'PRE') {
-          htmlEl.style.backgroundColor = '#f5f5f5';
-          htmlEl.style.color = '#171717';
-        } else if (htmlEl.tagName === 'BLOCKQUOTE') {
-          htmlEl.style.borderLeftColor = '#e5e5e5';
-          htmlEl.style.color = '#525252';
-        } else {
-          htmlEl.style.color = '#171717';
+      // Crear una hoja de estilos para el modo claro
+      const style = document.createElement('style');
+      style.innerHTML = `
+        .pdf-export-clone * {
+          color: #171717 !important;
         }
-      });
+        .pdf-export-clone h1 {
+          font-size: 1.875rem !important;
+          font-weight: bold !important;
+          margin-bottom: 1rem !important;
+          color: #171717 !important;
+        }
+        .pdf-export-clone h2 {
+          font-size: 1.5rem !important;
+          font-weight: bold !important;
+          margin-bottom: 0.75rem !important;
+          color: #171717 !important;
+        }
+        .pdf-export-clone h3 {
+          font-size: 1.25rem !important;
+          font-weight: bold !important;
+          margin-bottom: 0.5rem !important;
+          color: #171717 !important;
+        }
+        .pdf-export-clone p {
+          margin-bottom: 1rem !important;
+          color: #171717 !important;
+        }
+        .pdf-export-clone strong {
+          font-weight: bold !important;
+          color: #171717 !important;
+        }
+        .pdf-export-clone em {
+          font-style: italic !important;
+          color: #171717 !important;
+        }
+        .pdf-export-clone s {
+          text-decoration: line-through !important;
+          color: #171717 !important;
+        }
+        .pdf-export-clone code {
+          background-color: #f5f5f5 !important;
+          color: #171717 !important;
+          padding: 0.125rem 0.25rem !important;
+          border-radius: 0.25rem !important;
+          font-family: monospace !important;
+        }
+        .pdf-export-clone pre {
+          background-color: #f5f5f5 !important;
+          color: #171717 !important;
+          padding: 1rem !important;
+          border-radius: 0.25rem !important;
+          overflow-x: auto !important;
+        }
+        .pdf-export-clone pre code {
+          background-color: transparent !important;
+          padding: 0 !important;
+        }
+        .pdf-export-clone ul, .pdf-export-clone ol {
+          margin-left: 1.5rem !important;
+          margin-bottom: 1rem !important;
+          color: #171717 !important;
+        }
+        .pdf-export-clone li {
+          margin-bottom: 0.25rem !important;
+          color: #171717 !important;
+        }
+        .pdf-export-clone blockquote {
+          border-left: 4px solid #e5e5e5 !important;
+          padding-left: 1rem !important;
+          font-style: italic !important;
+          color: #525252 !important;
+          margin-bottom: 1rem !important;
+        }
+      `;
       
+      clone.classList.add('pdf-export-clone');
+      document.head.appendChild(style);
       document.body.appendChild(clone);
 
       const canvas = await html2canvas(clone, {
@@ -124,59 +178,61 @@ const RichTextEditor = ({ content, noteId, noteTitle }: RichTextEditorProps) => 
       });
       
       document.body.removeChild(clone);
+      document.head.removeChild(style);
 
       const pdf = new jsPDF({
         orientation: 'portrait',
-        unit: 'px',
+        unit: 'mm',
         format: 'a4',
       });
 
-      const margin = 40; // Márgenes en px
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const margin = 15; // mm
+      const pdfWidth = 210; // A4 width in mm
+      const pdfHeight = 297; // A4 height in mm
       const contentWidth = pdfWidth - (margin * 2);
       const contentHeight = pdfHeight - (margin * 2);
       
-      const imgWidth = contentWidth;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      // Convertir canvas a dimensiones en mm
+      const imgWidthMm = contentWidth;
+      const imgHeightMm = (canvas.height * contentWidth) / canvas.width;
       
-      const totalPages = Math.ceil(imgHeight / contentHeight);
+      let currentY = 0;
+      let pageNumber = 0;
 
-      for (let page = 0; page < totalPages; page++) {
-        if (page > 0) {
+      while (currentY < imgHeightMm) {
+        if (pageNumber > 0) {
           pdf.addPage();
         }
 
-        const sourceY = page * contentHeight * (canvas.width / imgWidth);
-        const sourceHeight = Math.min(
-          contentHeight * (canvas.width / imgWidth),
-          canvas.height - sourceY
-        );
-
-        // Crear un canvas temporal para cada página
+        // Calcular cuánto del contenido cabe en esta página
+        const remainingHeight = imgHeightMm - currentY;
+        const pageContentHeight = Math.min(contentHeight, remainingHeight);
+        
+        // Calcular las coordenadas del canvas original
+        const sourceY = (currentY / imgHeightMm) * canvas.height;
+        const sourceHeight = (pageContentHeight / imgHeightMm) * canvas.height;
+        
+        // Crear canvas para esta página específica
         const pageCanvas = document.createElement('canvas');
         pageCanvas.width = canvas.width;
-        pageCanvas.height = sourceHeight;
+        pageCanvas.height = Math.ceil(sourceHeight);
         
         const ctx = pageCanvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(
             canvas,
-            0,
-            sourceY,
-            canvas.width,
-            sourceHeight,
-            0,
-            0,
-            canvas.width,
-            sourceHeight
+            0, sourceY,              // Start position in source
+            canvas.width, sourceHeight,  // Size in source
+            0, 0,                    // Position in destination
+            canvas.width, sourceHeight   // Size in destination
           );
           
-          const pageImgData = pageCanvas.toDataURL('image/png');
-          const pageImgHeight = (sourceHeight * imgWidth) / canvas.width;
-          
-          pdf.addImage(pageImgData, 'PNG', margin, margin, imgWidth, pageImgHeight);
+          const pageData = pageCanvas.toDataURL('image/png');
+          pdf.addImage(pageData, 'PNG', margin, margin, imgWidthMm, pageContentHeight);
         }
+        
+        currentY += contentHeight;
+        pageNumber++;
       }
 
       pdf.save(`${fileName}.pdf`);
