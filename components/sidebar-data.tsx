@@ -1,10 +1,12 @@
 "use client"
 
-import { getNotebooks } from '@/server/notebooks'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from './ui/sidebar';
 import { ChevronRight, File } from 'lucide-react';
 import { useQueryState } from 'nuqs';
+import { useTheme } from 'next-themes';
+import Image from 'next/image';
+import { useEffect, useState } from 'react';
 
 interface SidebarDataProps {
     data: {
@@ -17,6 +19,12 @@ interface SidebarDataProps {
 
 export function SidebarData({ data }: SidebarDataProps) {
     const [search] = useQueryState("search", { defaultValue: "" });
+    const { theme } = useTheme();
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const filteredData = data.navMain.filter((item) => {
         const notebooksMatches = item.title.toLowerCase().includes(search.toLowerCase());
@@ -66,6 +74,38 @@ export function SidebarData({ data }: SidebarDataProps) {
                     </SidebarGroup>
                 </Collapsible>
             ))}
+            <Collapsible defaultOpen className="group/collapsible">
+                <SidebarGroup>
+                    <SidebarGroupLabel
+                        asChild
+                        className="group/label text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-sm"
+                    >
+                        <CollapsibleTrigger>
+                            Integraciones{" "}
+                            <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                        </CollapsibleTrigger>
+                    </SidebarGroupLabel>
+                    <CollapsibleContent>
+                        <SidebarGroupContent>
+                            <SidebarMenu>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild>
+                                        <a href="#">
+                                            <Image 
+                                                src={mounted && theme === 'dark' ? '/openai-dark.svg' : '/openai-light.svg'}
+                                                alt="OpenAI"
+                                                width={28}
+                                                height={28}
+                                            />
+                                            OpenAI
+                                        </a>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </CollapsibleContent>
+                </SidebarGroup>
+            </Collapsible>
         </>
     )
 }
