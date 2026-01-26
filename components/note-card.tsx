@@ -69,7 +69,7 @@ export default function NoteCard({ note }: NotebookCardProps) {
         </Link>
         <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
           <AlertDialogTrigger asChild>
-            <Button className="w-full" variant="destructive">
+            <Button className="w-full">
               <Trash2 className="size-4 mr-2" />
               Delete Note
             </Button>

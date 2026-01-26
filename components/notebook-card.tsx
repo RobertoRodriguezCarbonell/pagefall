@@ -70,7 +70,7 @@ export default function NotebookCard({ notebook }: NotebookCardProps) {
                 </Link>
                 <AlertDialog open={open} onOpenChange={setOpen}>
                     <AlertDialogTrigger asChild>
-                        <Button className="w-full" variant="destructive">
+                        <Button className="w-full">
                             <Trash2 className="size-4 mr-2" />
                             Delete Notebook
                         </Button>
