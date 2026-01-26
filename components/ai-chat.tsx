@@ -3,8 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Send, Sparkles, X, Zap } from "lucide-react";
+import { Loader2, Send, Sparkles, X, Zap, ChevronLeft } from "lucide-react";
 import { getOpenAIApiKey } from "@/server/settings";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -235,111 +234,149 @@ Use valid HTML tags: <p>, <h1>, <h2>, <h3>, <ul>, <ol>, <li>, <strong>, <em>. No
         }
     };
 
-    if (!isOpen) {
-        return (
-            <Button
-                onClick={() => setIsOpen(true)}
-                className="fixed bottom-6 right-6 rounded-full size-14 shadow-lg"
-                size="icon"
-            >
-                <Sparkles className="size-6" />
-            </Button>
-        );
-    }
-
     return (
-        <Card className="fixed bottom-6 right-6 w-96 h-[600px] shadow-xl flex flex-col overflow-hidden">
-            <CardHeader className="flex-shrink-0 flex flex-row items-center justify-between space-y-0 pb-4 border-b">
-                <CardTitle className="flex items-center gap-2">
-                    <Sparkles className="size-5 text-primary" />
-                    AI Assistant
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant={agentMode ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setAgentMode(!agentMode)}
-                        className="h-8"
-                        title={agentMode ? "Agent mode: AI writes directly" : "Chat mode: AI assists"}
-                    >
-                        <Zap className="size-3 mr-1" />
-                        {agentMode ? "Agent" : "Chat"}
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon"
+        <>
+            {/* Floating Trigger Button */}
+            {!isOpen && (
+                <Button
+                    onClick={() => setIsOpen(true)}
+                    className="fixed bottom-8 right-8 rounded-full size-16 shadow-lg hover:scale-110 transition-transform z-50"
+                    size="icon"
+                >
+                    <Sparkles className="size-6" />
+                </Button>
+            )}
+
+            {/* Sliding Panel Overlay */}
+            {isOpen && (
+                <>
+                    {/* Backdrop */}
+                    <div 
+                        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 transition-opacity"
                         onClick={() => setIsOpen(false)}
-                    >
-                        <X className="size-4" />
-                    </Button>
-                </div>
-            </CardHeader>
-            <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
-                <div className="flex-1 overflow-y-auto p-4" ref={scrollRef}>
-                    <div className="space-y-4 min-h-full">
-                        {messages.length === 0 && (
-                            <div className="text-center text-muted-foreground text-sm py-8">
-                                {agentMode ? (
-                                    <>
-                                        <Zap className="size-8 mx-auto mb-2 text-primary" />
-                                        <p className="font-semibold mb-1">Agent Mode Active</p>
-                                        <p>AI will write directly into your note!</p>
-                                    </>
-                                ) : (
-                                    "Ask me anything about your note or get help with writing!"
-                                )}
+                    />
+                    
+                    {/* Side Panel */}
+                    <div className="fixed top-0 right-0 h-full w-full sm:w-[480px] bg-background border-l shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-300">
+                        {/* Header */}
+                        <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b bg-muted/30">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-lg bg-primary/10">
+                                    <Sparkles className="size-5 text-primary" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-semibold">AI Assistant</h2>
+                                    <p className="text-xs text-muted-foreground">
+                                        {agentMode ? "Agent mode - writing directly" : "Chat mode - ask anything"}
+                                    </p>
+                                </div>
                             </div>
-                        )}
-                        {messages.map((message, index) => (
-                            <div
-                                key={index}
-                                className={cn(
-                                    "flex",
-                                    message.role === "user" ? "justify-end" : "justify-start"
-                                )}
-                            >
-                                <div
-                                    className={cn(
-                                        "rounded-lg px-4 py-2 max-w-[80%] break-words",
-                                        message.role === "user"
-                                            ? "bg-primary text-primary-foreground"
-                                            : "bg-muted"
-                                    )}
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant={agentMode ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => setAgentMode(!agentMode)}
+                                    className="h-9"
+                                    title={agentMode ? "Agent mode: AI writes directly" : "Chat mode: AI assists"}
                                 >
-                                    <div className="text-sm whitespace-pre-wrap leading-relaxed">
-                                        {message.content}
+                                    <Zap className="size-3.5 mr-1.5" />
+                                    {agentMode ? "Agent" : "Chat"}
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setIsOpen(false)}
+                                    className="size-9"
+                                >
+                                    <ChevronLeft className="size-5" />
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Messages Area */}
+                        <div className="flex-1 overflow-y-auto px-6 py-4" ref={scrollRef}>
+                            <div className="space-y-4">
+                                {messages.length === 0 && (
+                                    <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                                        {agentMode ? (
+                                            <>
+                                                <div className="p-4 rounded-full bg-primary/10 mb-4">
+                                                    <Zap className="size-10 text-primary" />
+                                                </div>
+                                                <h3 className="text-lg font-semibold mb-2">Agent Mode Active</h3>
+                                                <p className="text-sm text-muted-foreground max-w-xs">
+                                                    AI will analyze your requests and write directly into your note.
+                                                </p>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div className="p-4 rounded-full bg-muted mb-4">
+                                                    <Sparkles className="size-10 text-muted-foreground" />
+                                                </div>
+                                                <h3 className="text-lg font-semibold mb-2">Start a conversation</h3>
+                                                <p className="text-sm text-muted-foreground max-w-xs">
+                                                    Ask me anything about your note or get help with writing!
+                                                </p>
+                                            </>
+                                        )}
                                     </div>
-                                </div>
+                                )}
+                                {messages.map((message, index) => (
+                                    <div
+                                        key={index}
+                                        className={cn(
+                                            "flex",
+                                            message.role === "user" ? "justify-end" : "justify-start"
+                                        )}
+                                    >
+                                        <div
+                                            className={cn(
+                                                "rounded-2xl px-4 py-3 max-w-[85%] shadow-sm",
+                                                message.role === "user"
+                                                    ? "bg-primary text-primary-foreground"
+                                                    : "bg-muted"
+                                            )}
+                                        >
+                                            <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                                                {message.content}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {isLoading && (
+                                    <div className="flex justify-start">
+                                        <div className="rounded-2xl px-4 py-3 bg-muted shadow-sm">
+                                            <Loader2 className="size-4 animate-spin" />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                        ))}
-                        {isLoading && (
-                            <div className="flex justify-start">
-                                <div className="rounded-lg px-4 py-2 bg-muted">
-                                    <Loader2 className="size-4 animate-spin" />
-                                </div>
+                        </div>
+
+                        {/* Input Area */}
+                        <div className="flex-shrink-0 border-t bg-muted/30 p-4">
+                            <div className="flex gap-2">
+                                <Input
+                                    placeholder={agentMode ? "Tell me what to write..." : "Ask something..."}
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    onKeyPress={handleKeyPress}
+                                    disabled={isLoading}
+                                    className="flex-1 bg-background"
+                                />
+                                <Button
+                                    onClick={handleSend}
+                                    disabled={isLoading || !input.trim()}
+                                    size="icon"
+                                    className="size-10"
+                                >
+                                    <Send className="size-4" />
+                                </Button>
                             </div>
-                        )}
+                        </div>
                     </div>
-                </div>
-                <div className="flex-shrink-0 p-4 border-t bg-background">
-                    <div className="flex gap-2">
-                        <Input
-                            placeholder="Ask something..."
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            onKeyPress={handleKeyPress}
-                            disabled={isLoading}
-                        />
-                        <Button
-                            onClick={handleSend}
-                            disabled={isLoading || !input.trim()}
-                            size="icon"
-                        >
-                            <Send className="size-4" />
-                        </Button>
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
+                </>
+            )}
+        </>
     );
 }
