@@ -56,9 +56,10 @@ interface RichTextEditorProps {
   content?: JSONContent[];
   noteId?: string;
   noteTitle?: string;
+  onEditorReady?: (insertFn: (text: string) => void) => void;
 }
 
-const RichTextEditor = ({ content, noteId, noteTitle }: RichTextEditorProps) => {
+const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady }: RichTextEditorProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [pdfFileName, setPdfFileName] = useState(noteTitle || 'note');
 
@@ -75,6 +76,17 @@ const RichTextEditor = ({ content, noteId, noteTitle }: RichTextEditorProps) => 
       }
     },
     content,
+  });
+
+  // Provide insert function to parent when editor is ready
+  useState(() => {
+    if (editor && onEditorReady) {
+      const insertContent = (text: string) => {
+        editor.commands.focus('end');
+        editor.commands.insertContent(`<p>${text}</p>`);
+      };
+      onEditorReady(insertContent);
+    }
   });
 
   const handleExportPDF = async (fileName: string) => {

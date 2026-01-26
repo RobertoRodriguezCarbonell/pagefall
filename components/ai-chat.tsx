@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Send, Sparkles, X } from "lucide-react";
+import { Loader2, Send, Sparkles, X, Zap } from "lucide-react";
 import { getOpenAIApiKey } from "@/server/settings";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -17,13 +17,15 @@ interface Message {
 interface AIChatProps {
   noteContent?: string;
   noteTitle?: string;
+  onInsertContent?: (content: string) => void;
 }
 
-export function AIChat({ noteContent, noteTitle }: AIChatProps) {
+export function AIChat({ noteContent, noteTitle, onInsertContent }: AIChatProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [agentMode, setAgentMode] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -54,8 +56,12 @@ export function AIChat({ noteContent, noteTitle }: AIChatProps) {
       }
 
       const systemPrompt = noteContent
-        ? `You are a helpful AI assistant. The user is working on a note titled "${noteTitle}". Here's the current content: ${noteContent}. Help them with questions, suggestions, or improvements.`
-        : "You are a helpful AI assistant for note-taking and writing.";
+        ? agentMode
+          ? `You are an AI writing assistant in agent mode. The user is working on a note titled "${noteTitle}". Current content: ${noteContent}. When in agent mode, provide ONLY the text that should be inserted into the note, without explanations or meta-commentary. Write as if you're directly adding to or improving the user's note.`
+          : `You are a helpful AI assistant. The user is working on a note titled "${noteTitle}". Here's the current content: ${noteContent}. Help them with questions, suggestions, or improvements.`
+        : agentMode
+          ? "You are an AI writing assistant in agent mode. Provide ONLY the text that should be inserted into the note, without explanations or meta-commentary."
+          : "You are a helpful AI assistant for note-taking and writing.";
 
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -126,6 +132,12 @@ export function AIChat({ noteContent, noteTitle }: AIChatProps) {
           }
         }
       }
+
+      // If in agent mode and onInsertContent is provided, insert the content into the note
+      if (agentMode && onInsertContent && accumulatedContent) {
+        onInsertContent(accumulatedContent);
+        toast.success("Content inserted into note");
+      }
     } catch (error) {
       toast.error("An error occurred");
       setMessages((prev) => prev.slice(0, -1));
@@ -160,20 +172,40 @@ export function AIChat({ noteContent, noteTitle }: AIChatProps) {
           <Sparkles className="size-5 text-primary" />
           AI Assistant
         </CardTitle>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsOpen(false)}
-        >
-          <X className="size-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={agentMode ? "default" : "outline"}
+            size="sm"
+            onClick={() => setAgentMode(!agentMode)}
+            className="h-8"
+            title={agentMode ? "Agent mode: AI writes directly" : "Chat mode: AI assists"}
+          >
+            <Zap className="size-3 mr-1" />
+            {agentMode ? "Agent" : "Chat"}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsOpen(false)}
+          >
+            <X className="size-4" />
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
         <div className="flex-1 overflow-y-auto p-4" ref={scrollRef}>
           <div className="space-y-4 min-h-full">
             {messages.length === 0 && (
               <div className="text-center text-muted-foreground text-sm py-8">
-                Ask me anything about your note or get help with writing!
+                {agentMode ? (
+                  <>
+                    <Zap className="size-8 mx-auto mb-2 text-primary" />
+                    <p className="font-semibold mb-1">Agent Mode Active</p>
+                    <p>AI will write directly into your note!</p>
+                  </>
+                ) : (
+                  "Ask me anything about your note or get help with writing!"
+                )}
               </div>
             )}
             {messages.map((message, index) => (
