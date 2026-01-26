@@ -68,14 +68,20 @@ export function AIChat({ noteTitle, onInsertContent, onReplaceContent, getEditor
 CURRENT NOTE HTML:
 ${currentContent}
 
-IMPORTANT INSTRUCTIONS:
-- If user says ADD/WRITE/CREATE new content: Return ONLY the NEW HTML to add.
-- If user says CHANGE/MODIFY/DELETE/REMOVE/REPLACE parts: Return the COMPLETE HTML of the entire note with changes applied.
-- When DELETING content: Return complete note HTML WITHOUT deleted items.
-- Use ONLY these HTML tags: <p>, <h1>, <h2>, <h3>, <ul>, <ol>, <li>, <strong>, <em>, <code>, <blockquote>
-- Your response must be ONLY valid HTML - no explanations, no markdown, no code blocks.
+You must respond with a JSON object with this structure:
+{
+  "action": "add" | "replace",
+  "content": "<html content here>"
+}
+
+IMPORTANT DECISION RULES:
+- Use "add" when user wants to ADD/WRITE/CREATE new content to the existing note
+- Use "replace" when user wants to CHANGE/MODIFY/DELETE/REMOVE existing content or doesn't like something
+- When action is "add": content should be ONLY the NEW HTML to append
+- When action is "replace": content should be the COMPLETE HTML of the entire note with changes applied
+- Use ONLY valid HTML tags: <p>, <h1>, <h2>, <h3>, <ul>, <ol>, <li>, <strong>, <em>, <code>, <blockquote>
 - Close all HTML tags properly.
-- If unclear, assume user wants to ADD content.`
+- Response must be ONLY the JSON object, nothing else.`
                     : `You are a helpful AI assistant. The user is working on a note titled "${noteTitle}".
 
 Current note content:
@@ -83,7 +89,12 @@ ${currentContent}
 
 Help them with questions, suggestions, or improvements.`
                 : agentMode
-                    ? "You are an AI writing assistant in agent mode. Output ONLY valid HTML using tags: <p>, <h1>, <h2>, <h3>, <ul>, <ol>, <li>, <strong>, <em>. No explanations or markdown."
+                    ? `You are an AI writing assistant in agent mode. Respond with JSON:
+{
+  "action": "add",
+  "content": "<html here>"
+}
+Use valid HTML tags: <p>, <h1>, <h2>, <h3>, <ul>, <ol>, <li>, <strong>, <em>. No explanations.`
                     : "You are a helpful AI assistant for note-taking and writing.";
 
             const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -164,41 +175,46 @@ Help them with questions, suggestions, or improvements.`
                 }
             }
 
-            // Clean HTML - remove markdown code blocks if AI added them
-            let cleanedContent = accumulatedContent.trim();
-            cleanedContent = cleanedContent.replace(/^```html?\n?/i, '').replace(/\n?```$/i, '');
-            cleanedContent = cleanedContent.trim();
+            // If in agent mode, parse JSON response from AI
+            if (agentMode && accumulatedContent && accumulatedContent.length > 0) {
+                try {
+                    // Clean potential markdown code blocks
+                    let cleanedContent = accumulatedContent.trim();
+                    cleanedContent = cleanedContent.replace(/^```json?\n?/i, '').replace(/\n?```$/i, '');
+                    
+                    const response = JSON.parse(cleanedContent);
+                    const action = response.action;
+                    const htmlContent = response.content;
 
-            // Analyze user message to determine if they want to replace or add content
-            const shouldReplace = /\b(replace|rewrite|change|modify|fix|delete|remove|elimina|borra|quita|rehacer|reescribir|cambiar|modificar)\b/i.test(userMessage.content);
+                    console.log("🤖 AI Decision:", { 
+                        action,
+                        contentPreview: htmlContent.substring(0, 100) + "...",
+                        userMessage: userMessage.content 
+                    });
 
-            console.log("🤖 AI Response:", { 
-                raw: accumulatedContent, 
-                cleaned: cleanedContent,
-                shouldReplace,
-                agentMode,
-                userMessage: userMessage.content 
-            });
-
-            // If in agent mode, insert or replace based on user intent
-            if (agentMode && cleanedContent && cleanedContent.length > 0) {
-                if (shouldReplace && onReplaceContent) {
-                    console.log("🔄 Replacing entire note with:", cleanedContent);
-                    onReplaceContent(cleanedContent);
-                    toast.success("Note updated with AI changes");
-                    // Add success message to chat
+                    if (action === "replace" && onReplaceContent) {
+                        console.log("🔄 Replacing entire note");
+                        onReplaceContent(htmlContent);
+                        toast.success("Note updated with AI changes");
+                        setMessages((prev) => [...prev, { 
+                            role: "assistant", 
+                            content: "✅ Note updated successfully" 
+                        }]);
+                    } else if (action === "add" && onInsertContent) {
+                        console.log("➕ Adding new content");
+                        onInsertContent(htmlContent);
+                        toast.success("Content added to note");
+                        setMessages((prev) => [...prev, { 
+                            role: "assistant", 
+                            content: "✅ Content added successfully" 
+                        }]);
+                    }
+                } catch (error) {
+                    console.error("Failed to parse AI response as JSON:", error);
+                    toast.error("AI response format error. Please try again.");
                     setMessages((prev) => [...prev, { 
                         role: "assistant", 
-                        content: "✅ Note updated successfully" 
-                    }]);
-                } else if (onInsertContent) {
-                    console.log("➕ Adding content:", cleanedContent);
-                    onInsertContent(cleanedContent);
-                    toast.success("Content added to note");
-                    // Add success message to chat
-                    setMessages((prev) => [...prev, { 
-                        role: "assistant", 
-                        content: "✅ Content added successfully" 
+                        content: "❌ Error processing response. Please try again." 
                     }]);
                 }
             }
