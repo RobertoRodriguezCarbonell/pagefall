@@ -1,5 +1,6 @@
 import { PageWrapper } from "@/components/page-wrapper";
 import RichTextEditor from "@/components/rich-text-editor";
+import { AIChat } from "@/components/ai-chat";
 import { getNoteById } from "@/server/notes";
 import { JSONContent } from "@tiptap/react";
 
@@ -12,6 +13,11 @@ export default async function NotePage({ params }: { params: Params }) {
 
     const { note } = await getNoteById(noteId);
 
+    // Convert JSONContent to string for AI context
+    const noteContentString = note?.content 
+        ? JSON.stringify(note.content)
+        : undefined;
+
     return (
         <PageWrapper breadcrumbs={[
             { label: "Dashboard", href: "/dashboard" },
@@ -22,6 +28,10 @@ export default async function NotePage({ params }: { params: Params }) {
             <RichTextEditor 
                 content={note?.content as JSONContent[]}
                 noteId={noteId}
+                noteTitle={note?.title}
+            />
+            <AIChat 
+                noteContent={noteContentString}
                 noteTitle={note?.title}
             />
         </PageWrapper>
