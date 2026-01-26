@@ -56,7 +56,7 @@ interface RichTextEditorProps {
   content?: JSONContent[];
   noteId?: string;
   noteTitle?: string;
-  onEditorReady?: (insertFn: (text: string) => void, replaceFn: (text: string) => void) => void;
+  onEditorReady?: (insertFn: (text: string) => void, replaceFn: (text: string) => void, getHTMLFn: () => string) => void;
 }
 
 const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady }: RichTextEditorProps) => {
@@ -81,14 +81,21 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady }: RichTextE
   // Provide insert and replace functions to parent when editor is ready
   useEffect(() => {
     if (editor && onEditorReady) {
-      const insertContent = (text: string) => {
+      const insertContent = (html: string) => {
+        console.log("📝 Editor insertContent called with:", html);
         editor.commands.focus('end');
-        editor.commands.insertContent(`<p>${text}</p>`);
+        editor.commands.insertContent(html);
       };
-      const replaceContent = (text: string) => {
-        editor.commands.setContent(`<p>${text}</p>`);
+      const replaceContent = (html: string) => {
+        console.log("📝 Editor replaceContent called with:", html);
+        editor.commands.setContent(html);
       };
-      onEditorReady(insertContent, replaceContent);
+      const getHTML = () => {
+        const html = editor.getHTML();
+        console.log("📝 Editor getHTML called, returning:", html);
+        return html;
+      };
+      onEditorReady(insertContent, replaceContent, getHTML);
     }
   }, [editor, onEditorReady]);
 

@@ -21,14 +21,12 @@ interface NotePageClientProps {
 export default function NotePageClient({ note }: NotePageClientProps) {
     const [insertContentFn, setInsertContentFn] = useState<((text: string) => void) | null>(null);
     const [replaceContentFn, setReplaceContentFn] = useState<((text: string) => void) | null>(null);
+    const [getEditorHTMLFn, setGetEditorHTMLFn] = useState<(() => string) | null>(null);
 
-    const noteContentString = note?.content 
-        ? JSON.stringify(note.content)
-        : undefined;
-
-    const handleEditorReady = useCallback((insertFn: (text: string) => void, replaceFn: (text: string) => void) => {
+    const handleEditorReady = useCallback((insertFn: (text: string) => void, replaceFn: (text: string) => void, getHTMLFn: () => string) => {
         setInsertContentFn(() => insertFn);
         setReplaceContentFn(() => replaceFn);
+        setGetEditorHTMLFn(() => getHTMLFn);
     }, []);
 
     return (
@@ -45,10 +43,10 @@ export default function NotePageClient({ note }: NotePageClientProps) {
                 onEditorReady={handleEditorReady}
             />
             <AIChat 
-                noteContent={noteContentString}
                 noteTitle={note?.title}
                 onInsertContent={insertContentFn || undefined}
                 onReplaceContent={replaceContentFn || undefined}
+                getEditorHTML={getEditorHTMLFn || undefined}
             />
         </PageWrapper>
     );
