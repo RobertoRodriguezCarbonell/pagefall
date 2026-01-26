@@ -82,7 +82,6 @@ const RichTextEditor = ({ content, noteId, noteTitle }: RichTextEditorProps) => 
     if (!editorElement) return;
 
     try {
-      // Clonar el elemento para aplicar estilos de modo claro
       const clone = editorElement.cloneNode(true) as HTMLElement;
       clone.style.position = 'absolute';
       clone.style.left = '-9999px';
@@ -90,7 +89,6 @@ const RichTextEditor = ({ content, noteId, noteTitle }: RichTextEditorProps) => 
       clone.style.width = editorElement.offsetWidth + 'px';
       clone.style.backgroundColor = '#ffffff';
       
-      // Crear una hoja de estilos para el modo claro
       const style = document.createElement('style');
       style.innerHTML = `
         .pdf-export-clone * {
@@ -186,13 +184,12 @@ const RichTextEditor = ({ content, noteId, noteTitle }: RichTextEditorProps) => 
         format: 'a4',
       });
 
-      const margin = 15; // mm
-      const pdfWidth = 210; // A4 width in mm
-      const pdfHeight = 297; // A4 height in mm
+      const margin = 15;
+      const pdfWidth = 210;
+      const pdfHeight = 297;
       const contentWidth = pdfWidth - (margin * 2);
       const contentHeight = pdfHeight - (margin * 2);
       
-      // Convertir canvas a dimensiones en mm
       const imgWidthMm = contentWidth;
       const imgHeightMm = (canvas.height * contentWidth) / canvas.width;
       
@@ -204,15 +201,12 @@ const RichTextEditor = ({ content, noteId, noteTitle }: RichTextEditorProps) => 
           pdf.addPage();
         }
 
-        // Calcular cuánto del contenido cabe en esta página
         const remainingHeight = imgHeightMm - currentY;
         const pageContentHeight = Math.min(contentHeight, remainingHeight);
-        
-        // Calcular las coordenadas del canvas original
+
         const sourceY = (currentY / imgHeightMm) * canvas.height;
         const sourceHeight = (pageContentHeight / imgHeightMm) * canvas.height;
         
-        // Crear canvas para esta página específica
         const pageCanvas = document.createElement('canvas');
         pageCanvas.width = canvas.width;
         pageCanvas.height = Math.ceil(sourceHeight);
@@ -221,10 +215,10 @@ const RichTextEditor = ({ content, noteId, noteTitle }: RichTextEditorProps) => 
         if (ctx) {
           ctx.drawImage(
             canvas,
-            0, sourceY,              // Start position in source
-            canvas.width, sourceHeight,  // Size in source
-            0, 0,                    // Position in destination
-            canvas.width, sourceHeight   // Size in destination
+            0, sourceY,
+            canvas.width, sourceHeight,
+            0, 0,
+            canvas.width, sourceHeight
           );
           
           const pageData = pageCanvas.toDataURL('image/png');
@@ -283,9 +277,7 @@ const RichTextEditor = ({ content, noteId, noteTitle }: RichTextEditorProps) => 
 
   return (
     <div className="w-full max-w-7xl bg-card text-card-foreground rounded-lg overflow-hidden border">
-      {/* Toolbar */}
       <div className="flex items-center gap-1 p-2 bg-muted/50 border-b">
-        {/* Undo/Redo */}
         <Button
           variant="ghost"
           size="sm"
@@ -307,7 +299,6 @@ const RichTextEditor = ({ content, noteId, noteTitle }: RichTextEditorProps) => 
 
         <div className="w-px h-6 bg-border mx-1" />
 
-        {/* Heading Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -353,7 +344,6 @@ const RichTextEditor = ({ content, noteId, noteTitle }: RichTextEditorProps) => 
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Lists */}
         <Button
           variant="ghost"
           size="sm"
@@ -381,7 +371,6 @@ const RichTextEditor = ({ content, noteId, noteTitle }: RichTextEditorProps) => 
 
         <div className="w-px h-6 bg-border mx-1" />
 
-        {/* Text Formatting */}
         <Button
           variant="ghost"
           size="sm"
@@ -444,7 +433,6 @@ const RichTextEditor = ({ content, noteId, noteTitle }: RichTextEditorProps) => 
 
         <div className="w-px h-6 bg-border mx-1" />
 
-        {/* Additional Tools */}
         <Button
           variant="ghost"
           size="sm"
@@ -469,7 +457,6 @@ const RichTextEditor = ({ content, noteId, noteTitle }: RichTextEditorProps) => 
 
         <div className="w-px h-6 bg-border mx-1" />
 
-        {/* Alignment */}
         <Button
           variant="ghost"
           size="sm"
@@ -499,10 +486,8 @@ const RichTextEditor = ({ content, noteId, noteTitle }: RichTextEditorProps) => 
           <AlignJustify className="h-4 w-4" />
         </Button>
 
-        {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Export PDF Button */}
         <Button
           variant="ghost"
           size="sm"
@@ -513,7 +498,6 @@ const RichTextEditor = ({ content, noteId, noteTitle }: RichTextEditorProps) => 
           Export PDF
         </Button>
 
-        {/* Add Button */}
         <Button
           variant="ghost"
           size="sm"
@@ -524,7 +508,6 @@ const RichTextEditor = ({ content, noteId, noteTitle }: RichTextEditorProps) => 
         </Button>
       </div>
 
-      {/* Editor Content */}
       <div className="min-h-96 p-6 bg-card">
         <EditorContent
           editor={editor}
@@ -532,7 +515,6 @@ const RichTextEditor = ({ content, noteId, noteTitle }: RichTextEditorProps) => 
         />
       </div>
 
-      {/* Export PDF Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
