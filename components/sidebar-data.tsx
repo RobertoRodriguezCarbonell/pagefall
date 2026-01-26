@@ -90,7 +90,7 @@ export function SidebarData({ data }: SidebarDataProps) {
                             <SidebarMenu>
                                 <SidebarMenuItem>
                                     <SidebarMenuButton asChild>
-                                        <a href="#">
+                                        <a href="/dashboard/settings">
                                             <Image 
                                                 src={mounted && theme === 'dark' ? '/openai-dark.svg' : '/openai-light.svg'}
                                                 alt="OpenAI"
