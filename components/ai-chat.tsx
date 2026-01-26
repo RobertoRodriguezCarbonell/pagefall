@@ -18,9 +18,10 @@ interface AIChatProps {
   noteContent?: string;
   noteTitle?: string;
   onInsertContent?: (content: string) => void;
+  onReplaceContent?: (content: string) => void;
 }
 
-export function AIChat({ noteContent, noteTitle, onInsertContent }: AIChatProps) {
+export function AIChat({ noteContent, noteTitle, onInsertContent, onReplaceContent }: AIChatProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -57,10 +58,10 @@ export function AIChat({ noteContent, noteTitle, onInsertContent }: AIChatProps)
 
       const systemPrompt = noteContent
         ? agentMode
-          ? `You are an AI writing assistant in agent mode. The user is working on a note titled "${noteTitle}". Current content: ${noteContent}. When in agent mode, provide ONLY the text that should be inserted into the note, without explanations or meta-commentary. Write as if you're directly adding to or improving the user's note.`
+          ? `You are an AI writing assistant in agent mode. The user is working on a note titled "${noteTitle}". Current content: ${noteContent}. When in agent mode, you MUST output the COMPLETE NEW VERSION of the note with all the requested changes applied. Do not provide explanations, just output the full updated note content that will replace the existing content.`
           : `You are a helpful AI assistant. The user is working on a note titled "${noteTitle}". Here's the current content: ${noteContent}. Help them with questions, suggestions, or improvements.`
         : agentMode
-          ? "You are an AI writing assistant in agent mode. Provide ONLY the text that should be inserted into the note, without explanations or meta-commentary."
+          ? "You are an AI writing assistant in agent mode. Output the COMPLETE text content that will replace the entire note. Do not provide explanations."
           : "You are a helpful AI assistant for note-taking and writing.";
 
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -133,8 +134,12 @@ export function AIChat({ noteContent, noteTitle, onInsertContent }: AIChatProps)
         }
       }
 
-      // If in agent mode and onInsertContent is provided, insert the content into the note
-      if (agentMode && onInsertContent && accumulatedContent) {
+      // If in agent mode and onReplaceContent is provided, replace the entire note content
+      // If in chat mode and onInsertContent is provided, insert the content at the end
+      if (agentMode && onReplaceContent && accumulatedContent) {
+        onReplaceContent(accumulatedContent);
+        toast.success("Note updated with AI changes");
+      } else if (!agentMode && onInsertContent && accumulatedContent) {
         onInsertContent(accumulatedContent);
         toast.success("Content inserted into note");
       }

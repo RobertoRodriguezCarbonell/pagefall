@@ -4,7 +4,7 @@ import { PageWrapper } from "@/components/page-wrapper";
 import RichTextEditor from "@/components/rich-text-editor";
 import { AIChat } from "@/components/ai-chat";
 import { JSONContent } from "@tiptap/react";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 
 interface NotePageClientProps {
     note: {
@@ -20,14 +20,16 @@ interface NotePageClientProps {
 
 export default function NotePageClient({ note }: NotePageClientProps) {
     const [insertContentFn, setInsertContentFn] = useState<((text: string) => void) | null>(null);
+    const [replaceContentFn, setReplaceContentFn] = useState<((text: string) => void) | null>(null);
 
     const noteContentString = note?.content 
         ? JSON.stringify(note.content)
         : undefined;
 
-    const handleEditorReady = (insertFn: (text: string) => void) => {
+    const handleEditorReady = useCallback((insertFn: (text: string) => void, replaceFn: (text: string) => void) => {
         setInsertContentFn(() => insertFn);
-    };
+        setReplaceContentFn(() => replaceFn);
+    }, []);
 
     return (
         <PageWrapper breadcrumbs={[
@@ -46,6 +48,7 @@ export default function NotePageClient({ note }: NotePageClientProps) {
                 noteContent={noteContentString}
                 noteTitle={note?.title}
                 onInsertContent={insertContentFn || undefined}
+                onReplaceContent={replaceContentFn || undefined}
             />
         </PageWrapper>
     );

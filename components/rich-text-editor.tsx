@@ -11,6 +11,7 @@ import Document from "@tiptap/extension-document";
 import Paragraph from "@tiptap/extension-paragraph";
 import Text from "@tiptap/extension-text";
 import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,7 +27,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
 import {
   Undo,
   Redo,
@@ -56,7 +56,7 @@ interface RichTextEditorProps {
   content?: JSONContent[];
   noteId?: string;
   noteTitle?: string;
-  onEditorReady?: (insertFn: (text: string) => void) => void;
+  onEditorReady?: (insertFn: (text: string) => void, replaceFn: (text: string) => void) => void;
 }
 
 const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady }: RichTextEditorProps) => {
@@ -78,16 +78,19 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady }: RichTextE
     content,
   });
 
-  // Provide insert function to parent when editor is ready
-  useState(() => {
+  // Provide insert and replace functions to parent when editor is ready
+  useEffect(() => {
     if (editor && onEditorReady) {
       const insertContent = (text: string) => {
         editor.commands.focus('end');
         editor.commands.insertContent(`<p>${text}</p>`);
       };
-      onEditorReady(insertContent);
+      const replaceContent = (text: string) => {
+        editor.commands.setContent(`<p>${text}</p>`);
+      };
+      onEditorReady(insertContent, replaceContent);
     }
-  });
+  }, [editor, onEditorReady]);
 
   const handleExportPDF = async (fileName: string) => {
     const editorElement = document.querySelector('.ProseMirror') as HTMLElement;
