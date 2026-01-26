@@ -18,6 +18,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { useState } from "react";
+import {
   Undo,
   Redo,
   Bold,
@@ -36,15 +46,22 @@ import {
   ChevronDown,
   Superscript,
   Subscript,
+  FileDown,
 } from "lucide-react";
 import { updateNote } from "@/server/notes";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas-pro";
 
 interface RichTextEditorProps {
   content?: JSONContent[];
   noteId?: string;
+  noteTitle?: string;
 }
 
-const RichTextEditor = ({ content, noteId }: RichTextEditorProps) => {
+const RichTextEditor = ({ content, noteId, noteTitle }: RichTextEditorProps) => {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [pdfFileName, setPdfFileName] = useState(noteTitle || 'note');
+
   const editor = useEditor({
     extensions: [StarterKit, Document, Paragraph, Text],
     immediatelyRender: false,
@@ -59,6 +76,120 @@ const RichTextEditor = ({ content, noteId }: RichTextEditorProps) => {
     },
     content,
   });
+
+  const handleExportPDF = async (fileName: string) => {
+    const editorElement = document.querySelector('.ProseMirror') as HTMLElement;
+    if (!editorElement) return;
+
+    try {
+      // Clonar el elemento para aplicar estilos de modo claro
+      const clone = editorElement.cloneNode(true) as HTMLElement;
+      clone.style.position = 'absolute';
+      clone.style.left = '-9999px';
+      clone.style.top = '0';
+      clone.style.width = editorElement.offsetWidth + 'px';
+      
+      // Aplicar estilos de modo claro al clon
+      clone.style.color = '#171717';
+      clone.style.backgroundColor = '#ffffff';
+      
+      // Aplicar estilos de modo claro a todos los elementos hijos
+      const allElements = clone.querySelectorAll('*');
+      allElements.forEach((el) => {
+        const htmlEl = el as HTMLElement;
+        htmlEl.classList.remove('dark');
+        
+        // Forzar colores de modo claro
+        if (htmlEl.tagName === 'CODE') {
+          htmlEl.style.backgroundColor = '#f5f5f5';
+          htmlEl.style.color = '#171717';
+        } else if (htmlEl.tagName === 'PRE') {
+          htmlEl.style.backgroundColor = '#f5f5f5';
+          htmlEl.style.color = '#171717';
+        } else if (htmlEl.tagName === 'BLOCKQUOTE') {
+          htmlEl.style.borderLeftColor = '#e5e5e5';
+          htmlEl.style.color = '#525252';
+        } else {
+          htmlEl.style.color = '#171717';
+        }
+      });
+      
+      document.body.appendChild(clone);
+
+      const canvas = await html2canvas(clone, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+      });
+      
+      document.body.removeChild(clone);
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'px',
+        format: 'a4',
+      });
+
+      const margin = 40; // Márgenes en px
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const contentWidth = pdfWidth - (margin * 2);
+      const contentHeight = pdfHeight - (margin * 2);
+      
+      const imgWidth = contentWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      const totalPages = Math.ceil(imgHeight / contentHeight);
+
+      for (let page = 0; page < totalPages; page++) {
+        if (page > 0) {
+          pdf.addPage();
+        }
+
+        const sourceY = page * contentHeight * (canvas.width / imgWidth);
+        const sourceHeight = Math.min(
+          contentHeight * (canvas.width / imgWidth),
+          canvas.height - sourceY
+        );
+
+        // Crear un canvas temporal para cada página
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = sourceHeight;
+        
+        const ctx = pageCanvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(
+            canvas,
+            0,
+            sourceY,
+            canvas.width,
+            sourceHeight,
+            0,
+            0,
+            canvas.width,
+            sourceHeight
+          );
+          
+          const pageImgData = pageCanvas.toDataURL('image/png');
+          const pageImgHeight = (sourceHeight * imgWidth) / canvas.width;
+          
+          pdf.addImage(pageImgData, 'PNG', margin, margin, imgWidth, pageImgHeight);
+        }
+      }
+
+      pdf.save(`${fileName}.pdf`);
+      setIsDialogOpen(false);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+    }
+  };
+
+  const handleOpenDialog = () => {
+    setPdfFileName(noteTitle || 'note');
+    setIsDialogOpen(true);
+  };
 
   const editorState = useEditorState({
     editor,
@@ -315,6 +446,17 @@ const RichTextEditor = ({ content, noteId }: RichTextEditorProps) => {
         {/* Spacer */}
         <div className="flex-1" />
 
+        {/* Export PDF Button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleOpenDialog}
+          className="h-8 px-2 text-muted-foreground hover:text-foreground hover:bg-accent gap-1"
+        >
+          <FileDown className="h-4 w-4" />
+          Export PDF
+        </Button>
+
         {/* Add Button */}
         <Button
           variant="ghost"
@@ -333,6 +475,41 @@ const RichTextEditor = ({ content, noteId }: RichTextEditorProps) => {
           className="prose prose-neutral dark:prose-invert max-w-none focus:outline-none [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:min-h-96 [&_.ProseMirror_h1]:text-3xl [&_.ProseMirror_h1]:font-bold [&_.ProseMirror_h1]:mb-4 [&_.ProseMirror_h2]:text-2xl [&_.ProseMirror_h2]:font-bold [&_.ProseMirror_h2]:mb-3 [&_.ProseMirror_p]:mb-4 [&_.ProseMirror_blockquote]:border-l-4 [&_.ProseMirror_blockquote]:border-border [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:italic [&_.ProseMirror_pre]:bg-muted [&_.ProseMirror_pre]:p-4 [&_.ProseMirror_pre]:rounded [&_.ProseMirror_pre]:overflow-x-auto [&_.ProseMirror_code]:bg-muted [&_.ProseMirror_code]:px-1 [&_.ProseMirror_code]:rounded"
         />
       </div>
+
+      {/* Export PDF Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Export as PDF</DialogTitle>
+            <DialogDescription>
+              Enter the name for your PDF file.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              value={pdfFileName}
+              onChange={(e) => setPdfFileName(e.target.value)}
+              placeholder="Enter file name"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && pdfFileName.trim()) {
+                  handleExportPDF(pdfFileName);
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => handleExportPDF(pdfFileName)}
+              disabled={!pdfFileName.trim()}
+            >
+              Export
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
