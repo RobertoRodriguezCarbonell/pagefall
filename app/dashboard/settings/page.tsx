@@ -6,17 +6,80 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Copy, Eye, EyeOff } from "lucide-react";
-import { useState } from "react";
+import { Copy, Eye, EyeOff, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
+import { saveOpenAIApiKey, getOpenAIApiKey } from "@/server/settings";
 
 export default function SettingsPage() {
     const [showApiKey, setShowApiKey] = useState(false);
     const [apiKey, setApiKey] = useState("");
+    const [isSaving, setIsSaving] = useState(false);
+    const [isTesting, setIsTesting] = useState(false);
     const { theme } = useTheme();
     const [mounted, setMounted] = useState(false);
+
+    // Load existing API key on mount
+    useEffect(() => {
+        setMounted(true);
+        const loadApiKey = async () => {
+            const result = await getOpenAIApiKey();
+            if (result.success && result.apiKey) {
+                setApiKey(result.apiKey);
+            }
+        };
+        loadApiKey();
+    }, []);
+
+    const handleSaveApiKey = async () => {
+        if (!apiKey.trim()) {
+            toast.error("Please enter an API key");
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            const result = await saveOpenAIApiKey(apiKey);
+            
+            if (result.success) {
+                toast.success("API key saved successfully");
+            } else {
+                toast.error(result.error || "Failed to save API key");
+            }
+        } catch (error) {
+            toast.error("An error occurred while saving");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleTestConnection = async () => {
+        if (!apiKey.trim()) {
+            toast.error("Please enter an API key first");
+            return;
+        }
+
+        setIsTesting(true);
+        try {
+            const response = await fetch("https://api.openai.com/v1/models", {
+                headers: {
+                    "Authorization": `Bearer ${apiKey}`,
+                },
+            });
+
+            if (response.ok) {
+                toast.success("Connection successful! API key is valid");
+            } else {
+                toast.error("Invalid API key or connection failed");
+            }
+        } catch (error) {
+            toast.error("Failed to test connection");
+        } finally {
+            setIsTesting(false);
+        }
+    };
 
     const handleCopyApiKey = async () => {
         if (!apiKey) {
@@ -31,11 +94,6 @@ export default function SettingsPage() {
             toast.error("Failed to copy API key");
         }
     };
-
-    // Prevent hydration mismatch
-    useState(() => {
-        setMounted(true);
-    });
 
     return (
         <PageWrapper breadcrumbs={[
@@ -53,13 +111,13 @@ export default function SettingsPage() {
                 <CardContent className="space-y-6">
                     {/* OpenAI Integration */}
                     <div className="space-y-4">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
                             {mounted && (
                                 <Image
                                     src={theme === "dark" ? "/openai-dark.svg" : "/openai-light.svg"}
                                     alt="OpenAI"
-                                    width={24}
-                                    height={24}
+                                    width={48}
+                                    height={48}
                                 />
                             )}
                             <div>
@@ -112,8 +170,26 @@ export default function SettingsPage() {
                         </div>
                         
                         <div className="flex gap-2">
-                            <Button>Save API Key</Button>
-                            <Button variant="outline">Test Connection</Button>
+                            <Button onClick={handleSaveApiKey} disabled={isSaving}>
+                                {isSaving ? (
+                                    <>
+                                        <Loader2 className="size-4 animate-spin mr-2" />
+                                        Saving...
+                                    </>
+                                ) : (
+                                    "Save API Key"
+                                )}
+                            </Button>
+                            <Button variant="outline" onClick={handleTestConnection} disabled={isTesting}>
+                                {isTesting ? (
+                                    <>
+                                        <Loader2 className="size-4 animate-spin mr-2" />
+                                        Testing...
+                                    </>
+                                ) : (
+                                    "Test Connection"
+                                )}
+                            </Button>
                         </div>
                     </div>
                 </CardContent>

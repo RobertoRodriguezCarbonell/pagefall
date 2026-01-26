@@ -89,6 +89,21 @@ export const notebookRelations = relations(notebooks, ({ many, one }) => ({
     })
 }));
 
+export const settings = pgTable("settings", {
+  id: text('id').primaryKey().default(sql`gen_random_uuid()`),
+  userId: text('user_id').notNull().unique().references(() => user.id, { onDelete: 'cascade' }),
+  openAIApiKey: text('openai_api_key'),
+  createdAt: timestamp('created_at').$defaultFn(() => /* @__PURE__ */ new Date()),
+  updatedAt: timestamp('updated_at').$defaultFn(() => /* @__PURE__ */ new Date())
+})
+
+export const settingsRelations = relations(settings, ({ one }) => ({
+  user: one(user, {
+    fields: [settings.userId],
+    references: [user.id],
+  }),
+}));
+
 export type Notebook = typeof notebooks.$inferSelect & {
     notes: Note[];
 };
@@ -113,9 +128,11 @@ export const noteRelations = relations(notes, ({ one }) => ({
 export type Note = typeof notes.$inferSelect;
 export type InsertNote = typeof notes.$inferInsert;
 
-export const userRelations = relations(user, ({ many }) => ({
+export const userRelations = relations(user, ({ many, one }) => ({
   sessions: many(session),
   accounts: many(account),
+  notebooks: many(notebooks),
+  settings: one(settings),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -132,4 +149,4 @@ export const accountRelations = relations(account, ({ one }) => ({
   }),
 }));
 
-export const schema = { user, session, account, verification, notebooks, notes, notebookRelations, noteRelations };
+export const schema = { user, session, account, verification, notebooks, notes, notebookRelations, noteRelations, settings, settingsRelations };
