@@ -189,27 +189,45 @@
   background-color: rgba(34, 197, 94, 0.2);
 }
 
-/* Comment marks - always in document, but only visible when parent has show-comments class */
-.comment-highlight {
-  /* No styling by default - comments are invisible */
+/* Comment marks - always in document, but only visible when show-comments class is present */
+/* Force transparent by default */
+.ProseMirror .comment-highlight,
+.ProseMirror span[data-comment-id] {
+  background-color: transparent !important;
+  border-bottom: none !important;
+  cursor: default;
 }
 
-.show-comments .comment-highlight {
-  background-color: rgba(251, 191, 36, 0.3);
-  border-bottom: 2px solid rgb(251, 191, 36);
-  cursor: pointer;
+/* Only show when parent has show-comments class */
+.show-comments .ProseMirror .comment-highlight,
+.show-comments .ProseMirror span[data-comment-id],
+.ProseMirror.show-comments .comment-highlight,
+.ProseMirror.show-comments span[data-comment-id] {
+  background-color: rgba(251, 191, 36, 0.3) !important;
+  border-bottom: 2px solid rgb(251, 191, 36) !important;
+  cursor: pointer !important;
   transition: background-color 0.2s;
 }
 
-.show-comments .comment-highlight:hover {
-  background-color: rgba(251, 191, 36, 0.5);
+.show-comments .ProseMirror .comment-highlight:hover,
+.show-comments .ProseMirror span[data-comment-id]:hover,
+.ProseMirror.show-comments .comment-highlight:hover,
+.ProseMirror.show-comments span[data-comment-id]:hover {
+  background-color: rgba(251, 191, 36, 0.5) !important;
 }
 
-.dark .show-comments .comment-highlight {
-  background-color: rgba(251, 191, 36, 0.25);
-  border-bottom-color: rgb(251, 191, 36);
+/* Dark mode */
+.dark .show-comments .ProseMirror .comment-highlight,
+.dark .show-comments .ProseMirror span[data-comment-id],
+.dark .ProseMirror.show-comments .comment-highlight,
+.dark .ProseMirror.show-comments span[data-comment-id] {
+  background-color: rgba(251, 191, 36, 0.25) !important;
+  border-bottom-color: rgb(251, 191, 36) !important;
 }
 
-.dark .show-comments .comment-highlight:hover {
-  background-color: rgba(251, 191, 36, 0.4);
+.dark .show-comments .ProseMirror .comment-highlight:hover,
+.dark .show-comments .ProseMirror span[data-comment-id]:hover,
+.dark .ProseMirror.show-comments .comment-highlight:hover,
+.dark .ProseMirror.show-comments span[data-comment-id]:hover {
+  background-color: rgba(251, 191, 36, 0.4) !important;
 }

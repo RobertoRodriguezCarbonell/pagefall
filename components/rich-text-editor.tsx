@@ -498,14 +498,25 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
   useEffect(() => {
     if (!editor) return;
     
-    const editorElement = editor.view.dom.closest('.tiptap-editor-container');
-    if (editorElement) {
+    // Add to ProseMirror element directly
+    const proseMirrorElement = editor.view.dom;
+    if (showComments) {
+      proseMirrorElement.classList.add('show-comments');
+    } else {
+      proseMirrorElement.classList.remove('show-comments');
+    }
+    
+    // Also add to parent containers
+    const editorContainer = proseMirrorElement.closest('.tiptap-editor-container');
+    if (editorContainer) {
       if (showComments) {
-        editorElement.classList.add('show-comments');
+        editorContainer.classList.add('show-comments');
       } else {
-        editorElement.classList.remove('show-comments');
+        editorContainer.classList.remove('show-comments');
       }
     }
+    
+    console.log('💬 Comment visibility toggled:', showComments, 'ProseMirror classes:', proseMirrorElement.className);
   }, [editor, showComments]);
 
   // Function to replace selected text (kept for internal use if needed)
