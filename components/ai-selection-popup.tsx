@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Sparkles, MessageCircle, Wand2 } from "lucide-react";
+import { Loader2, Sparkles, MessageCircle, Wand2, MessageSquarePlus } from "lucide-react";
 import { getOpenAIApiKey } from "@/server/settings";
 import { toast } from "sonner";
 
@@ -16,17 +16,21 @@ interface AISelectionPopupProps {
 
 export function AISelectionPopup({ selectedText, position, onClose, onApply }: AISelectionPopupProps) {
     const [instruction, setInstruction] = useState("");
+    const [comment, setComment] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [response, setResponse] = useState<string | null>(null);
-    const [isExpanded, setIsExpanded] = useState(false);
+    const [view, setView] = useState<'menu' | 'ai' | 'comment'>('menu');
+    
     const inputRef = useRef<HTMLInputElement>(null);
+    const commentInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        // Auto-focus input when popup expands
-        if (isExpanded) {
+        if (view === 'ai') {
             inputRef.current?.focus();
+        } else if (view === 'comment') {
+            commentInputRef.current?.focus();
         }
-    }, [isExpanded]);
+    }, [view]);
 
     const quickActions = [
         { label: "Fix Grammar", prompt: "Fix grammar and spelling errors" },
@@ -34,6 +38,12 @@ export function AISelectionPopup({ selectedText, position, onClose, onApply }: A
         { label: "Make Professional", prompt: "Rewrite in a professional tone" },
         { label: "Translate to English", prompt: "Translate this text to English" },
     ];
+
+    const handleCommentSubmit = () => {
+        if (!comment.trim()) return;
+        toast.success("Comment functionality coming soon");
+        onClose();
+    };
 
     const handleAIRequest = async (mode: "apply" | "ask", customPrompt?: string) => {
         const textToProcess = customPrompt || instruction;
@@ -118,6 +128,16 @@ Provide a helpful, concise answer to their question. You can explain, analyze, o
     };
 
     const handleKeyPress = (e: React.KeyboardEvent) => {
+        if (view === 'comment') {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleCommentSubmit();
+            } else if (e.key === "Escape") {
+                onClose();
+            }
+            return;
+        }
+
         if (e.key === "Enter" && e.shiftKey) {
             e.preventDefault();
             handleAIRequest("ask");
@@ -129,25 +149,94 @@ Provide a helpful, concise answer to their question. You can explain, analyze, o
         }
     };
 
-    if (!isExpanded) {
+    if (view === 'menu') {
         return (
             <>
                 <div 
                     className="fixed inset-0 z-40"
                     onClick={onClose}
                 />
-                <button
-                    onClick={() => setIsExpanded(true)}
-                    className="fixed z-50 flex items-center gap-2 px-3 py-1.5 bg-background border rounded-full shadow-lg hover:bg-accent transition-all animate-in fade-in zoom-in-95 duration-200 cursor-pointer"
+                <div
+                    className="fixed z-50 flex items-center gap-1 p-1 bg-background border rounded-full shadow-lg transition-all animate-in fade-in zoom-in-95 duration-200"
                     style={{
                         top: `${position.top}px`,
                         left: `${position.left}px`,
                         transform: position.placement === 'top' ? 'translateY(-100%)' : 'none'
                     }}
                 >
-                    <Sparkles className="size-3.5 text-purple-500" />
-                    <span className="text-xs font-semibold">Ask AI</span>
-                </button>
+                    <button
+                        onClick={() => setView('ai')}
+                        className="flex items-center gap-2 px-3 py-1.5 hover:bg-accent rounded-full transition-colors"
+                    >
+                        <Sparkles className="size-3.5 text-purple-500" />
+                        <span className="text-xs font-semibold">Ask AI</span>
+                    </button>
+                    
+                    <div className="w-px h-4 bg-border" />
+                    
+                    <button
+                        onClick={() => setView('comment')}
+                        className="flex items-center gap-2 px-3 py-1.5 hover:bg-accent rounded-full transition-colors text-muted-foreground hover:text-foreground"
+                    >
+                        <MessageSquarePlus className="size-3.5" />
+                        <span className="text-xs font-medium">Add comment</span>
+                    </button>
+                </div>
+            </>
+        );
+    }
+    
+    if (view === 'comment') {
+        return (
+            <>
+                <div className="fixed inset-0 z-40" onClick={onClose} />
+                <div
+                    className="fixed z-50 w-80 bg-background border rounded-lg shadow-xl animate-in fade-in zoom-in-95 duration-200"
+                    style={{
+                        top: `${position.top}px`,
+                        left: `${position.left}px`,
+                        transform: position.placement === 'top' ? 'translateY(-100%)' : 'none'
+                    }}
+                >
+                    <div className="p-3">
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                                <div className="p-1.5 rounded bg-blue-500/10">
+                                    <MessageSquarePlus className="size-3.5 text-blue-500" />
+                                </div>
+                                <span className="text-xs font-medium text-foreground">Add comment</span>
+                            </div>
+                            <span className="text-[10px] text-muted-foreground">{selectedText.length > 20 ? selectedText.substring(0, 20) + '...' : selectedText}</span>
+                        </div>
+                        
+                        <Input
+                            ref={commentInputRef}
+                            value={comment}
+                            onChange={(e) => setComment(e.target.value)}
+                            onKeyDown={handleKeyPress}
+                            placeholder="Type your comment..."
+                            className="h-9 text-sm mb-2"
+                        />
+                        
+                        <div className="flex justify-end gap-2">
+                            <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                onClick={() => setView('menu')}
+                                className="h-7 text-xs"
+                            >
+                                Back
+                            </Button>
+                            <Button 
+                                size="sm" 
+                                onClick={handleCommentSubmit}
+                                className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                                Save
+                            </Button>
+                        </div>
+                    </div>
+                </div>
             </>
         );
     }
