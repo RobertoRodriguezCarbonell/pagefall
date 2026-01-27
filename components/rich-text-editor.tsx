@@ -90,6 +90,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
   const [hasSuggestions, setHasSuggestions] = useState(false);
   const [suggestionHistory, setSuggestionHistory] = useState<Map<string, { originalText: string, from: number, to: number }>>(new Map());
   const editorRef = useRef<HTMLDivElement>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const editor = useEditor({
     extensions: [
@@ -117,8 +118,16 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
     injectCSS: false,
     onUpdate: ({ editor }) => {
       if (noteId) {
-        const content = editor.getJSON();
-        updateNote(noteId, { content });
+        // Debounce save to avoid race conditions with mark application
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+        }
+        
+        saveTimeoutRef.current = setTimeout(() => {
+          const content = editor.getJSON();
+          console.log('💾 Saving content to database:', JSON.stringify(content, null, 2));
+          updateNote(noteId, { content });
+        }, 500); // Wait 500ms before saving
       }
       // Check if there are AI suggestions
       const hasSuggestion = editor.state.doc.textContent.length > 0 && 
@@ -127,6 +136,13 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
     },
     content,
   });
+
+  // Log loaded content
+  useEffect(() => {
+    if (content) {
+      console.log('📥 Content loaded from database:', JSON.stringify(content, null, 2));
+    }
+  }, [content]);
 
   // Handle text selection on mouseup (when user finishes selecting)
   useEffect(() => {
@@ -466,13 +482,22 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
         // Validate positions
         const docSize = editor.state.doc.content.size;
         if (from < 0 || to > docSize || from >= to) {
+          console.error('Invalid positions for comment mark:', { from, to, docSize });
           return;
         }
+        
+        console.log('Applying comment mark:', { commentId, from, to });
         
         editor.chain()
           .setTextSelection({ from, to })
           .setCommentMark(commentId)
           .run();
+        
+        // Log the JSON after applying mark
+        setTimeout(() => {
+          const json = editor.getJSON();
+          console.log('Document JSON after applying mark:', JSON.stringify(json, null, 2));
+        }, 100);
       };
       
       const removeCommentMark = (commentId: string) => {
@@ -530,9 +555,16 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
       const target = event.target as HTMLElement;
       const commentElement = target.closest('[data-comment-id]');
       
+      console.log('Click detected on editor:', {
+        target: target.tagName,
+        hasCommentId: !!commentElement,
+        commentId: commentElement?.getAttribute('data-comment-id')
+      });
+      
       if (commentElement) {
         const commentId = commentElement.getAttribute('data-comment-id');
         if (commentId) {
+          console.log('Calling onCommentClick with:', commentId);
           onCommentClick(commentId);
         }
       }

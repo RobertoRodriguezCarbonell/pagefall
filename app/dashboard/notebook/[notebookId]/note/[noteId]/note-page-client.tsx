@@ -8,8 +8,10 @@ import { CommentsPanel } from "@/components/comments-panel";
 import { JSONContent } from "@tiptap/react";
 import { useState, useCallback, useEffect } from "react";
 import { getCommentsByNoteId } from "@/server/comments";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 
 const RichTextEditor = dynamic(() => import("@/components/rich-text-editor"), {
     ssr: false,
@@ -37,14 +39,23 @@ export default function NotePageClient({ note }: NotePageClientProps) {
     const [setCommentMarkFn, setSetCommentMarkFn] = useState<((commentId: string, from: number, to: number) => void) | null>(null);
     const [removeCommentMarkFn, setRemoveCommentMarkFn] = useState<((commentId: string) => void) | null>(null);
     
+    // AI Chat state
+    const [isAIChatOpen, setIsAIChatOpen] = useState(false);
+    
     // Comments state
     const [comments, setComments] = useState<any[]>([]);
     const [showComments, setShowComments] = useState(false);
     const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
     
     const handleCommentClick = useCallback((commentId: string) => {
+        console.log('Comment clicked:', commentId);
         setSelectedCommentId(commentId);
-    }, []);
+        
+        // Ensure comments panel is visible
+        if (!showComments) {
+            setShowComments(true);
+        }
+    }, [showComments]);
     
     // Load comments visibility state from localStorage after mount
     useEffect(() => {
@@ -157,7 +168,7 @@ export default function NotePageClient({ note }: NotePageClientProps) {
             { label: note?.title ?? "Note", href: `/dashboard/notebook/${note?.notebook?.id}/note/${note?.id}` },
         ]}>
             <div className="flex flex-row h-[calc(100vh-8rem)] gap-6 items-start">
-                {/* Left Side: Editor Area */}
+                {/* Main Editor Area */}
                 <div className="flex-1 w-full h-full min-w-0 pr-2 overflow-hidden flex flex-col">
                     <div className="max-w-4xl mx-auto w-full h-full flex flex-col space-y-4">
                         <div className="flex items-center justify-between gap-4 px-1 shrink-0">
@@ -203,20 +214,30 @@ export default function NotePageClient({ note }: NotePageClientProps) {
                         />
                     </div>
                 )}
+            </div>
 
-                {/* Right Side: AI Chat (Responsive) 
-                    - On Mobile: Container is present but empty of flow content (since child is fixed).
-                    - On Desktop: Container has width and holds the static sidebar.
-                */}
-                <div className="shrink-0 lg:w-[480px] xl:w-[600px] 2xl:w-[1000px] h-full rounded-lg border lg:border-border overflow-hidden transition-all duration-300 shadow-sm bg-background">
+            {/* Floating AI Chat Button */}
+            <Sheet open={isAIChatOpen} onOpenChange={setIsAIChatOpen}>
+                <SheetTrigger asChild>
+                    <Button
+                        size="lg"
+                        className="fixed bottom-8 right-8 h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 z-50"
+                    >
+                        <Bot className="size-7" />
+                    </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-full sm:w-[600px] md:w-[750px] lg:w-[1000px] xl:w-[1200px] 2xl:w-[1400px] p-0 flex flex-col">
+                    <VisuallyHidden.Root>
+                        <SheetTitle>AI Chat</SheetTitle>
+                    </VisuallyHidden.Root>
                     <AIChat 
                         noteTitle={note?.title}
                         onInsertContent={insertContentFn || undefined}
                         onReplaceContent={replaceContentFn || undefined}
                         getEditorHTML={getEditorHTMLFn || undefined}
                     />
-                </div>
-            </div>
+                </SheetContent>
+            </Sheet>
 
             {selectionPopup && (
                 <AISelectionPopup

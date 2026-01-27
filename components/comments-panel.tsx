@@ -145,15 +145,26 @@ export function CommentsPanel({ comments, onCommentUpdate, onCommentDeleted, sel
     <div className="space-y-3 p-4">
       {comments.map((comment) => {
         const isSelected = comment.id === selectedCommentId;
+        
+        // Debug logging
+        if (selectedCommentId) {
+          console.log('Comparing:', {
+            commentId: comment.id,
+            selectedCommentId,
+            isSelected,
+            match: comment.id === selectedCommentId
+          });
+        }
+        
         return (
           <div
             key={comment.id}
             ref={isSelected ? selectedCardRef : null}
             data-comment-id={comment.id}
-            className={`relative bg-card border rounded-lg p-3 shadow-sm transition-all hover:shadow-md ${
+            className={`relative bg-card border-2 rounded-lg p-3 shadow-sm transition-all hover:shadow-md ${
               comment.resolved ? "opacity-60 border-green-500/20" : "border-border"
             } ${
-              isSelected ? "border-primary animate-pulse ring-2 ring-primary/50" : ""
+              isSelected ? "!border-primary !ring-4 !ring-primary/30 !shadow-lg bg-primary/5" : ""
             }`}
           >
           {comment.resolved && (

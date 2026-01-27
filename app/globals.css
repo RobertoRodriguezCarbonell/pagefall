@@ -190,12 +190,17 @@
 }
 
 /* Comment marks - always in document, but only visible when show-comments class is present */
-/* Force transparent by default */
-.ProseMirror .comment-highlight,
+/* Force transparent by default - higher specificity */
+.ProseMirror .comment-highlight {
+  background-color: transparent !important;
+  border-bottom: none !important;
+  cursor: default !important;
+}
+
 .ProseMirror span[data-comment-id] {
   background-color: transparent !important;
   border-bottom: none !important;
-  cursor: default;
+  cursor: default !important;
 }
 
 /* Only show when parent has show-comments class */
