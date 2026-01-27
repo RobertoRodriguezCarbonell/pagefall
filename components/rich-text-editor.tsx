@@ -321,7 +321,10 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
           return newMap;
         });
 
-        // Smart List Insertion Logic
+        // 1. Delete selection first to assess valid state
+        editor.chain().focus().deleteRange({ from, to }).run();
+
+        // 2. Smart List Insertion Logic
         // Check if we are inserting a list structure while already inside a list item
         const inList = editor.isActive('listItem');
         let contentToInsert = cleanedText;
@@ -333,20 +336,30 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
           const listElement = tempDiv.querySelector('ul, ol');
           
           if (listElement) {
-               console.log("📝 Detected insertion of List inside List. Stripping wrapper <ul> and cleaning whitespace...");
-               // Extract only the LI elements and join them directly with NO separator.
-               // This is critical because any whitespace (newlines/spaces) between <li> tags
-               // in the inserted string will be interpreted by Tiptap as text nodes,
-               // creating "ghost" empty list items containing that whitespace.
                const lis = listElement.querySelectorAll('li');
-               contentToInsert = Array.from(lis).map(li => li.outerHTML).join('');
+               
+               // Check if the current list item is empty (which happens if we replaced the entire bullet content)
+               const { $from } = editor.state.selection;
+               const parent = $from.parent;
+               const isParentEmpty = parent.content.size === 0;
+
+               if (isParentEmpty && lis.length > 0) {
+                   console.log("📝 Merging first list item into current empty bullet...");
+                   // Use innerHTML for the first item to fill the current empty <li>
+                   const firstPart = lis[0].innerHTML;
+                   // Use outerHTML for the rest to create new sibling <li>s
+                   const secondPart = Array.from(lis).slice(1).map(li => li.outerHTML).join('');
+                   contentToInsert = firstPart + secondPart;
+               } else {
+                   console.log("📝 Detected insertion of List inside List. Stripping wrapper <ul>...");
+                   // Standard strip: Extract all LI elements
+                   contentToInsert = Array.from(lis).map(li => li.outerHTML).join('');
+               }
           }
         }
         
-        // Execute replacement
+        // 3. Execute insertion
         editor.chain()
-          .focus()
-          .deleteRange({ from, to })
           .insertContent(contentToInsert)
           .run();
         
