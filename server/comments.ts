@@ -101,6 +101,33 @@ export async function updateCommentResolved(commentId: string, resolved: boolean
   }
 }
 
+export async function updateCommentContent(commentId: string, content: string) {
+  try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const [comment] = await db
+      .update(comments)
+      .set({ content, updatedAt: new Date() })
+      .where(and(eq(comments.id, commentId), eq(comments.userId, session.user.id)))
+      .returning();
+
+    if (!comment) {
+      return { success: false, error: "Comment not found or unauthorized" };
+    }
+
+    return { success: true, comment };
+  } catch (error) {
+    console.error("Error updating comment content:", error);
+    return { success: false, error: "Failed to update comment content" };
+  }
+}
+
 export async function deleteComment(commentId: string) {
   try {
     const session = await auth.api.getSession({

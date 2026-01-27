@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageSquare, Check, Trash2, MoreVertical } from "lucide-react";
+import { MessageSquare, Check, Trash2, MoreVertical, Edit2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -8,9 +8,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { updateCommentResolved, deleteComment } from "@/server/comments";
+import { updateCommentResolved, deleteComment, updateCommentContent } from "@/server/comments";
 import { toast } from "sonner";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // Function to convert URLs in text to clickable links
 const linkify = (text: string) => {
@@ -60,6 +60,8 @@ interface CommentsPanelProps {
 
 export function CommentsPanel({ comments, onCommentUpdate, onCommentDeleted, selectedCommentId, onCommentSelect }: CommentsPanelProps) {
   const selectedCardRef = useRef<HTMLDivElement>(null);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState<string>("");
   
   // Scroll to selected comment when it changes
   useEffect(() => {
@@ -81,6 +83,33 @@ export function CommentsPanel({ comments, onCommentUpdate, onCommentDeleted, sel
     const result = await updateCommentResolved(commentId, !currentResolved);
     if (result.success) {
       toast.success(currentResolved ? "Comment reopened" : "Comment marked as resolved");
+      onCommentUpdate();
+    } else {
+      toast.error(result.error || "Failed to update comment");
+    }
+  };
+
+  const handleStartEdit = (commentId: string, content: string) => {
+    setEditingCommentId(commentId);
+    setEditingContent(content);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingCommentId(null);
+    setEditingContent("");
+  };
+
+  const handleSaveEdit = async (commentId: string) => {
+    if (!editingContent.trim()) {
+      toast.error("Comment cannot be empty");
+      return;
+    }
+
+    const result = await updateCommentContent(commentId, editingContent);
+    if (result.success) {
+      toast.success("Comment updated");
+      setEditingCommentId(null);
+      setEditingContent("");
       onCommentUpdate();
     } else {
       toast.error(result.error || "Failed to update comment");
@@ -167,6 +196,10 @@ export function CommentsPanel({ comments, onCommentUpdate, onCommentDeleted, sel
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleStartEdit(comment.id, comment.content)}>
+                  <Edit2 className="size-4 mr-2" />
+                  Edit
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleToggleResolved(comment.id, comment.resolved)}>
                   <Check className="size-4 mr-2" />
                   {comment.resolved ? "Reopen" : "Mark as resolved"}
@@ -188,9 +221,43 @@ export function CommentsPanel({ comments, onCommentUpdate, onCommentDeleted, sel
             </div>
           )}
           
-          <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap break-words">
-            {linkify(comment.content)}
-          </div>
+          {editingCommentId === comment.id ? (
+            <div className="space-y-2">
+              <textarea
+                value={editingContent}
+                onChange={(e) => {
+                  setEditingContent(e.target.value);
+                  e.target.style.height = 'auto';
+                  e.target.style.height = e.target.scrollHeight + 'px';
+                }}
+                className="w-full min-h-[60px] max-h-[300px] p-2 text-sm border rounded-md bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                style={{ overflow: 'hidden' }}
+                autoFocus
+              />
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCancelEdit}
+                >
+                  <X className="size-3.5 mr-1" />
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => handleSaveEdit(comment.id)}
+                  disabled={!editingContent.trim()}
+                >
+                  <Check className="size-3.5 mr-1" />
+                  Save
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap break-words">
+              {linkify(comment.content)}
+            </div>
+          )}
         </div>
         );
       })}
