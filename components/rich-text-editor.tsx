@@ -10,6 +10,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Document from "@tiptap/extension-document";
 import Paragraph from "@tiptap/extension-paragraph";
 import Text from "@tiptap/extension-text";
+import { DOMParser } from "@tiptap/pm/model";
 import { AISuggestion } from "@/lib/tiptap-ai-suggestion";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useRef } from "react";
@@ -535,7 +536,11 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
     // Sort reverse to apply safely
     ops.sort((a, b) => b.from - a.from).forEach(op => {
         if (op.type === 'restore' && op.text !== undefined) {
-            tr.replaceWith(op.from, op.to, editor.state.schema.text(op.text));
+             // Parse HTML string to ProseMirror Slice to render correctly instead of plain text
+             const element = document.createElement('div');
+             element.innerHTML = op.text;
+             const slice = DOMParser.fromSchema(editor.state.schema).parseSlice(element);
+             tr.replace(op.from, op.to, slice);
         } else {
             tr.delete(op.from, op.to);
         }
