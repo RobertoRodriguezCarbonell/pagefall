@@ -80,6 +80,7 @@ IMPORTANT DECISION RULES:
 - When action is "replace": content should be the COMPLETE HTML of the entire note with changes applied
 - Use ONLY valid HTML tags: <p>, <h1>, <h2>, <h3>, <ul>, <ol>, <li>, <strong>, <em>, <code>, <blockquote>
 - Close all HTML tags properly.
+- IMPORTANT: Do not include ANY bullet characters (•, -, *) or numbering inside <li> tags. The HTML tags handle the list formatting.
 - Response must be ONLY the JSON object, nothing else.`
                     : `You are a helpful AI assistant. The user is working on a note titled "${noteTitle}".
 

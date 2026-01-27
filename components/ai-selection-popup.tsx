@@ -58,7 +58,7 @@ export function AISelectionPopup({ selectedText, position, onClose, onApply }: A
 
 The user wants you to: ${textToProcess}
 
-Respond with ONLY the modified text, nothing else. No explanations, no markdown, just the result text.`
+Respond with ONLY the modified HTML content (using <p>, <ul>, <li>, <strong>, etc.). Do not wrap in markdown code blocks. Just the raw HTML string provided directly. IMPORTANT: Do not include ANY bullet characters (•, -, *) or numbering inside <li> tags. The HTML tags handle the list formatting.`
                 : `You are an AI assistant. The user has selected this text:
 
 "${selectedText}"

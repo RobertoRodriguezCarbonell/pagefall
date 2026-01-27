@@ -120,7 +120,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
       // Small delay to ensure selection is finalized
       setTimeout(() => {
         const { from, to } = editor.state.selection;
-        const selectedText = editor.state.doc.textBetween(from, to, ' ');
+        const selectedText = editor.state.doc.textBetween(from, to, '\n');
         
         if (selectedText.trim().length > 0) {
           // Store selection range to restore it later
@@ -158,19 +158,33 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
   // Provide insert and replace functions to parent when editor is ready
   useEffect(() => {
     if (editor && onEditorReady) {
+      const cleanAIResponse = (response: string) => {
+        // Remove markdown code block markers if present
+        let clean = response.replace(/```html/g, '').replace(/```/g, '');
+        
+        // Remove manual bullets/numbers inside list items to prevent double bullets
+        // Matches <li> followed by bullet/number and optional whitespace
+        clean = clean.replace(/(<li[^>]*>)\s*(?:[-•*]|\d+\.)\s*/gi, '$1');
+        // Matches <li><p> followed by bullet/number and optional whitespace
+        clean = clean.replace(/(<li[^>]*>\s*<p[^>]*>)\s*(?:[-•*]|\d+\.)\s*/gi, '$1');
+        
+        return clean;
+      };
+
       const insertContent = (html: string) => {
-        console.log("📝 Editor insertContent called with:", html);
+        const cleanedHtml = cleanAIResponse(html);
+        console.log("📝 Editor insertContent called with:", cleanedHtml);
         
         // Get current position before inserting
         const currentPos = editor.state.selection.to;
         
         // Create a temporary div to measure the content length
         const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = html;
+        tempDiv.innerHTML = cleanedHtml;
         const textLength = tempDiv.textContent?.length || 0;
         
         editor.commands.focus('end');
-        editor.commands.insertContent(html);
+        editor.commands.insertContent(cleanedHtml);
         
         // Calculate the new position after insertion
         const newPos = editor.state.selection.to;
@@ -188,7 +202,8 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
       };
       
       const replaceContent = (html: string) => {
-        console.log("📝 Editor replaceContent called with:", html);
+        const cleanedHtml = cleanAIResponse(html);
+        console.log("📝 Editor replaceContent called with:", cleanedHtml);
         
         // Save the entire original content before replacing
         const originalContent = editor.getHTML();
@@ -205,7 +220,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
         });
         
         // Replace all content
-        editor.commands.setContent(html);
+        editor.commands.setContent(cleanedHtml);
         
         // Mark ALL content as AI suggestion since we replaced everything
         editor.chain()
@@ -224,7 +239,8 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
       };
       
       const replaceSelection = (text: string) => {
-        console.log("📝 Editor replaceSelection called with:", text);
+        const cleanedText = cleanAIResponse(text);
+        console.log("📝 Editor replaceSelection called with:", cleanedText);
         const { from, to } = editor.state.selection;
         const originalText = editor.state.doc.textBetween(from, to, ' ');
         
@@ -242,19 +258,30 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
         editor.chain()
           .focus()
           .deleteRange({ from, to })
-          .insertContent(text)
+          .insertContent(cleanedText)
           .run();
         
         // Mark the newly inserted content
-        const newTo = from + text.length;
+        const newTo = from + cleanedText.length; // Approximate length for selection
+        // Recalculate 'to' based on actual inserted node size would be better but complex here
+        // We do a best effort selection end
         editor.chain()
-          .setTextSelection({ from, to: newTo })
+          .setTextSelection({ from, to: from + (tempDivContentLength(cleanedText) || cleanedText.length) })
           .setMark('aiSuggestion', { suggestionId })
           .focus()
           .run();
         
         setHasSuggestions(true);
       };
+      
+      // Helper to estimate text length of HTML string for selection
+      const tempDivContentLength = (html: string) => {
+          try {
+             const div = document.createElement('div');
+             div.innerHTML = html;
+             return div.textContent?.length || 0;
+          } catch (e) { return 0; }
+      }
       
       onEditorReady(insertContent, replaceContent, getHTML, replaceSelection);
     }
@@ -603,36 +630,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
 
   return (
     <div className="w-full max-w-7xl bg-card text-card-foreground rounded-lg overflow-hidden border">
-      {/* AI Suggestions Control Bar */}
-      {hasSuggestions && (
-        <div className="flex items-center justify-between px-4 py-2 bg-green-500/10 border-b border-green-500/20">
-          <div className="flex items-center gap-2">
-            <Sparkles className="size-4 text-green-600 dark:text-green-400" />
-            <span className="text-sm font-medium text-green-700 dark:text-green-300">
-              AI suggestions pending
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={handleRejectSuggestions}
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-800 dark:hover:bg-red-900/20"
-            >
-              ✗ Reject
-            </Button>
-            <Button
-              onClick={handleAcceptSuggestions}
-              variant="default"
-              size="sm"
-              className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white"
-            >
-              ✓ Accept
-            </Button>
-          </div>
-        </div>
-      )}
-      
+
       <div className="flex items-center gap-1 p-2 bg-muted/50 border-b">
         <Button
           variant="ghost"
@@ -913,6 +911,36 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
           className="prose prose-neutral dark:prose-invert max-w-none focus:outline-none [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:min-h-96 [&_.ProseMirror_h1]:text-3xl [&_.ProseMirror_h1]:font-bold [&_.ProseMirror_h1]:mb-4 [&_.ProseMirror_h2]:text-2xl [&_.ProseMirror_h2]:font-bold [&_.ProseMirror_h2]:mb-3 [&_.ProseMirror_p]:mb-4 [&_.ProseMirror_blockquote]:border-l-4 [&_.ProseMirror_blockquote]:border-border [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:italic [&_.ProseMirror_pre]:bg-muted [&_.ProseMirror_pre]:p-4 [&_.ProseMirror_pre]:rounded [&_.ProseMirror_pre]:overflow-x-auto [&_.ProseMirror_code]:bg-muted [&_.ProseMirror_code]:px-1 [&_.ProseMirror_code]:rounded [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:marker:text-foreground"
         />
       </div>
+
+      {hasSuggestions && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 px-6 py-3 bg-background/80 backdrop-blur-sm border rounded-full shadow-xl animate-in fade-in slide-in-from-bottom-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="size-4 text-green-600 dark:text-green-400" />
+            <span className="text-sm font-medium text-foreground">
+              AI suggestions pending
+            </span>
+          </div>
+          <div className="h-4 w-px bg-border" />
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleRejectSuggestions}
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-800 dark:hover:bg-red-900/20 rounded-full"
+            >
+              ✗ Reject
+            </Button>
+            <Button
+              onClick={handleAcceptSuggestions}
+              variant="default"
+              size="sm"
+              className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white rounded-full"
+            >
+              ✓ Accept
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
