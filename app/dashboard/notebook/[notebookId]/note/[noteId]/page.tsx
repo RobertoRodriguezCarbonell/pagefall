@@ -10,5 +10,15 @@ export default async function NotePage({ params }: { params: Params }) {
     const { noteId } = await params;
     const { note } = await getNoteById(noteId);
 
-    return <NotePageClient note={note} />;
+    const transformedNote = note ? {
+        id: note.id,
+        title: note.title,
+        content: note.content as JSONContent[],
+        notebook: note.notebook ? {
+            id: note.notebook.id,
+            name: note.notebook.name,
+        } : undefined,
+    } : null;
+
+    return <NotePageClient note={transformedNote} />;
 }

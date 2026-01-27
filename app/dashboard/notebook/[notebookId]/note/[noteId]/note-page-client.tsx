@@ -82,20 +82,36 @@ export default function NotePageClient({ note }: NotePageClientProps) {
             { label: note?.notebook?.name ?? "Notebook", href: `/dashboard/notebook/${note?.notebook?.id}` },
             { label: note?.title ?? "Note", href: `/dashboard/notebook/${note?.notebook?.id}/note/${note?.id}` },
         ]}>
-            <h1>{note?.title}</h1>
-            <RichTextEditor 
-                content={note?.content as JSONContent[]}
-                noteId={note?.id}
-                noteTitle={note?.title}
-                onEditorReady={handleEditorReady}
-                onTextSelection={handleTextSelection}
-            />
-            <AIChat 
-                noteTitle={note?.title}
-                onInsertContent={insertContentFn || undefined}
-                onReplaceContent={replaceContentFn || undefined}
-                getEditorHTML={getEditorHTMLFn || undefined}
-            />
+            <div className="flex flex-row h-[calc(100vh-8rem)] gap-6 items-start">
+                {/* Left Side: Editor Area */}
+                <div className="flex-1 w-full h-full min-w-0 pr-2 overflow-hidden flex flex-col">
+                    <div className="max-w-4xl mx-auto w-full h-full flex flex-col space-y-4">
+                        <h1 className="text-3xl font-bold px-1 shrink-0">{note?.title}</h1>
+                        <RichTextEditor 
+                            content={note?.content as JSONContent[]}
+                            noteId={note?.id}
+                            noteTitle={note?.title}
+                            className="flex-1 min-h-0 flex flex-col"
+                            onEditorReady={handleEditorReady}
+                            onTextSelection={handleTextSelection}
+                        />
+                    </div>
+                </div>
+
+                {/* Right Side: AI Chat (Responsive) 
+                    - On Mobile: Container is present but empty of flow content (since child is fixed).
+                    - On Desktop: Container has width and holds the static sidebar.
+                */}
+                <div className="shrink-0 lg:w-[600px] xl:w-[700px] h-full rounded-lg border lg:border-border overflow-hidden transition-all duration-300 shadow-sm bg-background">
+                    <AIChat 
+                        noteTitle={note?.title}
+                        onInsertContent={insertContentFn || undefined}
+                        onReplaceContent={replaceContentFn || undefined}
+                        getEditorHTML={getEditorHTMLFn || undefined}
+                    />
+                </div>
+            </div>
+
             {selectionPopup && (
                 <AISelectionPopup
                     selectedText={selectionPopup.text}
