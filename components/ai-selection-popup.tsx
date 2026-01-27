@@ -18,12 +18,15 @@ export function AISelectionPopup({ selectedText, position, onClose, onApply }: A
     const [instruction, setInstruction] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [response, setResponse] = useState<string | null>(null);
+    const [isExpanded, setIsExpanded] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        // Auto-focus input when popup opens
-        inputRef.current?.focus();
-    }, []);
+        // Auto-focus input when popup expands
+        if (isExpanded) {
+            inputRef.current?.focus();
+        }
+    }, [isExpanded]);
 
     const quickActions = [
         { label: "Fix Grammar", prompt: "Fix grammar and spelling errors" },
@@ -119,6 +122,28 @@ Provide a helpful, concise answer to their question. You can explain, analyze, o
             onClose();
         }
     };
+
+    if (!isExpanded) {
+        return (
+            <>
+                <div 
+                    className="fixed inset-0 z-40"
+                    onClick={onClose}
+                />
+                <button
+                    onClick={() => setIsExpanded(true)}
+                    className="fixed z-50 flex items-center gap-2 px-3 py-1.5 bg-background border rounded-full shadow-lg hover:bg-accent transition-all animate-in fade-in zoom-in-95 duration-200 cursor-pointer"
+                    style={{
+                        top: `${position.top}px`,
+                        left: `${position.left}px`,
+                    }}
+                >
+                    <Sparkles className="size-3.5 text-purple-500" />
+                    <span className="text-xs font-semibold">Ask AI</span>
+                </button>
+            </>
+        );
+    }
 
     return (
         <>
