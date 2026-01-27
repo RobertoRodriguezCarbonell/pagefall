@@ -74,19 +74,19 @@ export const verification = pgTable(
 );
 
 export const notebooks = pgTable("notebooks", {
-    id: text('id').primaryKey().default(sql`gen_random_uuid()`),
-    name: text('name').notNull(),
-    userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
-    createdAt: timestamp('created_at').$defaultFn(() => /* @__PURE__ */ new Date()),
-    updatedAt: timestamp('updated_at').$defaultFn(() => /* @__PURE__ */ new Date())
+  id: text('id').primaryKey().default(sql`gen_random_uuid()`),
+  name: text('name').notNull(),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').$defaultFn(() => /* @__PURE__ */ new Date()),
+  updatedAt: timestamp('updated_at').$defaultFn(() => /* @__PURE__ */ new Date())
 });
 
 export const notebookRelations = relations(notebooks, ({ many, one }) => ({
-    notes: many(notes),
-    user: one(user, {
-        fields: [notebooks.userId],
-        references: [user.id]
-    })
+  notes: many(notes),
+  user: one(user, {
+    fields: [notebooks.userId],
+    references: [user.id]
+  })
 }));
 
 export const settings = pgTable("settings", {
@@ -105,24 +105,54 @@ export const settingsRelations = relations(settings, ({ one }) => ({
 }));
 
 export type Notebook = typeof notebooks.$inferSelect & {
-    notes: Note[];
+  notes: Note[];
 };
 export type InsertNotebook = typeof notebooks.$inferInsert;
 
 export const notes = pgTable("notes", {
-    id: text('id').primaryKey().default(sql`gen_random_uuid()`),
-    title: text('title').notNull(),
-    content: jsonb('content').notNull(),
-    notebookId: text('notebook_id').notNull().references(() => notebooks.id, { onDelete: 'cascade' }),
-    createdAt: timestamp('created_at').$defaultFn(() => /* @__PURE__ */ new Date()),
-    updatedAt: timestamp('updated_at').$defaultFn(() => /* @__PURE__ */ new Date())
+  id: text('id').primaryKey().default(sql`gen_random_uuid()`),
+  title: text('title').notNull(),
+  content: jsonb('content').notNull(),
+  notebookId: text('notebook_id').notNull().references(() => notebooks.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').$defaultFn(() => /* @__PURE__ */ new Date()),
+  updatedAt: timestamp('updated_at').$defaultFn(() => /* @__PURE__ */ new Date())
 });
 
-export const noteRelations = relations(notes, ({ one }) => ({
-    notebook: one(notebooks, {
-        fields: [notes.notebookId],
-        references: [notebooks.id]
-    })
+export const noteRelations = relations(notes, ({ one, many }) => ({
+  notebook: one(notebooks, {
+    fields: [notes.notebookId],
+    references: [notebooks.id]
+  }),
+  comments: many(comments)
+}));
+
+export const comments = pgTable("comments", {
+  id: text('id').primaryKey().default(sql`gen_random_uuid()`),
+  content: text('content').notNull(),
+  noteId: text('note_id').notNull().references(() => notes.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }), // 👈 Añadido: Saber quién hizo el comentario
+
+  // Para vincular el comentario con una selección de texto específica
+  selectionText: text('selection_text'), // 👈 Opcional: El texto que se seleccionó al comentar
+  selectionStart: text('selection_start'), // 👈 Opcional: Posición inicial de la selección (puedes usar JSON si necesitas más precisión)
+  selectionEnd: text('selection_end'), // 👈 Opcional: Posición final
+
+  resolved: boolean('resolved').default(false), // 👈 Útil: Marcar comentarios como resueltos
+
+  createdAt: timestamp('created_at').$defaultFn(() => new Date()),
+  updatedAt: timestamp('updated_at').$defaultFn(() => new Date())
+    .$onUpdate(() => new Date()) // 👈 Añadido: Actualizar automáticamente
+})
+
+export const commentRelations = relations(comments, ({ one }) => ({
+  note: one(notes, {
+    fields: [comments.noteId],
+    references: [notes.id]
+  }),
+  user: one(user, { // 👈 Añadido: Relación con el usuario
+    fields: [comments.userId],
+    references: [user.id]
+  })
 }));
 
 export type Note = typeof notes.$inferSelect;
@@ -133,6 +163,7 @@ export const userRelations = relations(user, ({ many, one }) => ({
   accounts: many(account),
   notebooks: many(notebooks),
   settings: one(settings),
+  comments: many(comments),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -149,4 +180,4 @@ export const accountRelations = relations(account, ({ one }) => ({
   }),
 }));
 
-export const schema = { user, session, account, verification, notebooks, notes, notebookRelations, noteRelations, settings, settingsRelations };
+export const schema = { user, session, account, verification, notebooks, notes, notebookRelations, noteRelations, settings, settingsRelations, comments, commentRelations, userRelations, sessionRelations, accountRelations };

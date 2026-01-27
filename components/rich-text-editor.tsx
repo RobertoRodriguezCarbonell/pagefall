@@ -17,6 +17,7 @@ import SubscriptExtension from "@tiptap/extension-subscript";
 import SuperscriptExtension from "@tiptap/extension-superscript";
 import { DOMParser } from "@tiptap/pm/model";
 import { AISuggestion } from "@/lib/tiptap-ai-suggestion";
+import { CommentMark } from "@/lib/tiptap-comment-mark";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
@@ -67,6 +68,8 @@ interface RichTextEditorProps {
   noteId?: string;
   noteTitle?: string;
   className?: string;
+  comments?: Array<{ id: string; selectionText?: string | null }>;
+  showComments?: boolean;
   onEditorReady?: (
     insertFn: (text: string) => void, 
     replaceFn: (text: string) => void, 
@@ -75,10 +78,10 @@ interface RichTextEditorProps {
     manualReplaceFn: (text: string) => void,
     toggleStyleFn: (style: string) => void
   ) => void;
-  onTextSelection?: (text: string, position: { top: number; left: number; placement?: 'top' | 'bottom' }, activeStyles?: Record<string, boolean>) => void;
+  onTextSelection?: (text: string, position: { top: number; left: number; placement?: 'top' | 'bottom' }, activeStyles?: Record<string, boolean>, noteId?: string, selectionRange?: { from: number; to: number }) => void;
 }
 
-const RichTextEditor = ({ content, noteId, noteTitle, className, onEditorReady, onTextSelection }: RichTextEditorProps) => {
+const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], showComments = false, onEditorReady, onTextSelection }: RichTextEditorProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [pdfFileName, setPdfFileName] = useState(noteTitle || 'note');
   const [hasSuggestions, setHasSuggestions] = useState(false);
@@ -92,6 +95,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, onEditorReady, 
       Paragraph,
       Text,
       AISuggestion,
+      CommentMark,
       UnderlineExtension,
       LinkExtension.configure({
         openOnClick: false,
@@ -165,7 +169,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, onEditorReady, 
             blockquote: editor.isActive('blockquote'),
           };
 
-          onTextSelection(selectedText, position, activeStyles);
+          onTextSelection(selectedText, position, activeStyles, noteId, { from, to });
           
           // Restore selection after popup opens to keep text highlighted
           setTimeout(() => {
@@ -181,7 +185,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, onEditorReady, 
     return () => {
       editorElement.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [editor, onTextSelection]);
+  }, [editor, onTextSelection, noteId]);
 
   // Provide insert and replace functions to parent when editor is ready
   useEffect(() => {
@@ -458,6 +462,63 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, onEditorReady, 
       onEditorReady(insertContent, replaceContent, getHTML, replaceSelection, manualReplaceSelection, toggleStyle);
     }
   }, [editor, onEditorReady]);
+
+  // Highlight comments when showComments is toggled
+  useEffect(() => {
+    if (!editor) return;
+
+    if (showComments && comments.length > 0) {
+      // Remove any existing marks first
+      editor.chain().selectAll().unsetCommentMark().run();
+      
+      // Apply comment marks using stored positions
+      comments.forEach(comment => {
+        // If we have exact positions, use them
+        if (comment.selectionStart && comment.selectionEnd) {
+          const from = parseInt(comment.selectionStart);
+          const to = parseInt(comment.selectionEnd);
+          
+          // Validate positions are within document bounds
+          if (from >= 0 && to <= editor.state.doc.content.size && from < to) {
+            editor.chain()
+              .setTextSelection({ from, to })
+              .setCommentMark(comment.id)
+              .run();
+          }
+        } else if (comment.selectionText) {
+          // Fallback to text search for older comments without positions
+          const searchText = comment.selectionText.trim();
+          if (!searchText) return;
+          
+          let foundFirst = false;
+          
+          editor.state.doc.descendants((node, pos) => {
+            if (foundFirst) return false;
+            
+            if (node.isText && node.text) {
+              const text = node.text;
+              const index = text.indexOf(searchText);
+              
+              if (index !== -1) {
+                const from = pos + index;
+                const to = from + searchText.length;
+                
+                editor.chain()
+                  .setTextSelection({ from, to })
+                  .setCommentMark(comment.id)
+                  .run();
+                
+                foundFirst = true;
+              }
+            }
+          });
+        }
+      });
+    } else {
+      // Remove all comment marks
+      editor.chain().selectAll().unsetCommentMark().run();
+    }
+  }, [editor, comments, showComments]);
 
   // Function to replace selected text (kept for internal use if needed)
   const replaceSelectedText = (newText: string) => {
@@ -1102,6 +1163,24 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, onEditorReady, 
       </div>
 
       <div ref={editorRef} className="flex-1 p-6 bg-card rounded-b-lg overflow-y-auto">
+        <style jsx global>{`
+          .comment-highlight {
+            background-color: rgba(255, 213, 79, 0.3);
+            border-bottom: 2px solid rgba(255, 193, 7, 0.6);
+            cursor: pointer;
+            transition: background-color 0.2s;
+          }
+          .dark .comment-highlight {
+            background-color: rgba(255, 193, 7, 0.2);
+            border-bottom: 2px solid rgba(255, 193, 7, 0.4);
+          }
+          .comment-highlight:hover {
+            background-color: rgba(255, 213, 79, 0.5);
+          }
+          .dark .comment-highlight:hover {
+            background-color: rgba(255, 193, 7, 0.3);
+          }
+        `}</style>
         <EditorContent
           editor={editor}
           className="h-full prose prose-neutral dark:prose-invert max-w-none focus:outline-none [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:min-h-[500px] [&_.ProseMirror_h1]:text-3xl [&_.ProseMirror_h1]:font-bold [&_.ProseMirror_h1]:mb-4 [&_.ProseMirror_h2]:text-2xl [&_.ProseMirror_h2]:font-bold [&_.ProseMirror_h2]:mb-3 [&_.ProseMirror_p]:mb-4 [&_.ProseMirror_blockquote]:border-l-4 [&_.ProseMirror_blockquote]:border-border [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:italic [&_.ProseMirror_pre]:bg-muted [&_.ProseMirror_pre]:p-4 [&_.ProseMirror_pre]:rounded [&_.ProseMirror_pre]:overflow-x-auto [&_.ProseMirror_code]:bg-muted [&_.ProseMirror_code]:px-1 [&_.ProseMirror_code]:rounded [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:marker:text-foreground [&_a]:text-blue-500 [&_a]:underline [&_a]:cursor-pointer"

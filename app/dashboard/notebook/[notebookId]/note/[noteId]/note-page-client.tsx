@@ -4,8 +4,12 @@ import { PageWrapper } from "@/components/page-wrapper";
 import RichTextEditor from "@/components/rich-text-editor";
 import { AIChat } from "@/components/ai-chat";
 import { AISelectionPopup } from "@/components/ai-selection-popup";
+import { CommentsPanel } from "@/components/comments-panel";
 import { JSONContent } from "@tiptap/react";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { getCommentsByNoteId } from "@/server/comments";
+import { MessageSquare } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface NotePageClientProps {
     note: {
@@ -27,11 +31,17 @@ export default function NotePageClient({ note }: NotePageClientProps) {
     const [manualReplaceFn, setManualReplaceFn] = useState<((text: string) => void) | null>(null);
     const [toggleStyleFn, setToggleStyleFn] = useState<((style: string) => void) | null>(null);
     
+    // Comments state
+    const [comments, setComments] = useState<any[]>([]);
+    const [showComments, setShowComments] = useState(false);
+    
     // Selection popup state
     const [selectionPopup, setSelectionPopup] = useState<{
         text: string;
         position: { top: number; left: number; placement?: 'top' | 'bottom' };
         activeStyles?: Record<string, boolean>;
+        noteId?: string;
+        selectionRange?: { from: number; to: number };
     } | null>(null);
 
     const handleEditorReady = useCallback((
@@ -50,8 +60,8 @@ export default function NotePageClient({ note }: NotePageClientProps) {
         setToggleStyleFn(() => toggleStyleFn);
     }, []);
 
-    const handleTextSelection = useCallback((text: string, position: { top: number; left: number; placement?: 'top' | 'bottom' }, activeStyles?: Record<string, boolean>) => {
-        setSelectionPopup({ text, position, activeStyles });
+    const handleTextSelection = useCallback((text: string, position: { top: number; left: number; placement?: 'top' | 'bottom' }, activeStyles?: Record<string, boolean>, noteId?: string, selectionRange?: { from: number; to: number }) => {
+        setSelectionPopup({ text, position, activeStyles, noteId, selectionRange });
     }, []);
 
     const handleClosePopup = useCallback(() => {
@@ -76,6 +86,22 @@ export default function NotePageClient({ note }: NotePageClientProps) {
         }
     }, [toggleStyleFn]);
 
+    const fetchComments = useCallback(async () => {
+        if (!note?.id) return;
+        const result = await getCommentsByNoteId(note.id);
+        if (result.success && result.comments) {
+            setComments(result.comments);
+        }
+    }, [note?.id]);
+
+    useEffect(() => {
+        fetchComments();
+    }, [fetchComments]);
+
+    const handleToggleComments = useCallback(() => {
+        setShowComments(prev => !prev);
+    }, []);
+
     return (
         <PageWrapper breadcrumbs={[
             { label: "Dashboard", href: "/dashboard" },
@@ -86,17 +112,42 @@ export default function NotePageClient({ note }: NotePageClientProps) {
                 {/* Left Side: Editor Area */}
                 <div className="flex-1 w-full h-full min-w-0 pr-2 overflow-hidden flex flex-col">
                     <div className="max-w-4xl mx-auto w-full h-full flex flex-col space-y-4">
-                        <h1 className="text-3xl font-bold px-1 shrink-0">{note?.title}</h1>
+                        <div className="flex items-center justify-between gap-4 px-1 shrink-0">
+                            <h1 className="text-3xl font-bold">{note?.title}</h1>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleToggleComments}
+                                className={`h-9 px-3 gap-2 shrink-0 ${showComments ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent'}`}
+                            >
+                                <MessageSquare className="h-4 w-4" />
+                                {showComments ? 'Hide' : 'Show'} Comments
+                                {comments.length > 0 && (
+                                    <span className="text-xs bg-primary text-primary-foreground rounded-full px-2 py-0.5 min-w-[1.25rem] text-center font-medium">
+                                        {comments.length}
+                                    </span>
+                                )}
+                            </Button>
+                        </div>
                         <RichTextEditor 
                             content={note?.content as JSONContent[]}
                             noteId={note?.id}
                             noteTitle={note?.title}
                             className="flex-1 min-h-0 flex flex-col"
+                            comments={comments}
+                            showComments={showComments}
                             onEditorReady={handleEditorReady}
                             onTextSelection={handleTextSelection}
                         />
                     </div>
                 </div>
+
+                {/* Comments Panel */}
+                {showComments && (
+                    <div className="shrink-0 w-80 h-full border-l bg-background overflow-y-auto">
+                        <CommentsPanel comments={comments} onCommentUpdate={fetchComments} />
+                    </div>
+                )}
 
                 {/* Right Side: AI Chat (Responsive) 
                     - On Mobile: Container is present but empty of flow content (since child is fixed).
@@ -121,6 +172,8 @@ export default function NotePageClient({ note }: NotePageClientProps) {
                     onToggleStyle={handleToggleStyle}
                     activeStyles={selectionPopup.activeStyles}
                     noteTitle={note?.title}
+                    noteId={selectionPopup.noteId}
+                    selectionRange={selectionPopup.selectionRange}
                 />
             )}
         </PageWrapper>

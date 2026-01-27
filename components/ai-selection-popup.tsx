@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Sparkles, MessageCircle, Wand2, MessageSquarePlus, Type, Heading1, Heading2, Heading3, Pilcrow, Bold, Italic, Strikethrough, Code, List, ListOrdered, Quote, Check } from "lucide-react";
 import { getOpenAIApiKey } from "@/server/settings";
+import { createComment } from "@/server/comments";
 import { toast } from "sonner";
 import {
     DropdownMenu,
@@ -22,9 +23,11 @@ interface AISelectionPopupProps {
     onToggleStyle?: (style: string) => void;
     activeStyles?: Record<string, boolean>;
     noteTitle?: string;
+    noteId?: string;
+    selectionRange?: { from: number; to: number };
 }
 
-export function AISelectionPopup({ selectedText, position, onClose, onApply, onToggleStyle, activeStyles, noteTitle }: AISelectionPopupProps) {
+export function AISelectionPopup({ selectedText, position, onClose, onApply, onToggleStyle, activeStyles, noteTitle, noteId, selectionRange }: AISelectionPopupProps) {
     const [instruction, setInstruction] = useState("");
     const [comment, setComment] = useState("");
     const [isLoading, setIsLoading] = useState(false);
@@ -49,10 +52,36 @@ export function AISelectionPopup({ selectedText, position, onClose, onApply, onT
         { label: "Translate to English", prompt: "Translate this text to English" },
     ];
 
-    const handleCommentSubmit = () => {
+    const handleCommentSubmit = async () => {
         if (!comment.trim()) return;
-        toast.success("Comment functionality coming soon");
-        onClose();
+        if (!noteId) {
+            toast.error("Note ID is missing");
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const result = await createComment({
+                noteId,
+                content: comment,
+                selectionText: selectedText,
+                selectionStart: selectionRange?.from.toString(),
+                selectionEnd: selectionRange?.to.toString(),
+            });
+
+            if (result.success) {
+                toast.success("Comment added successfully");
+                setComment("");
+                onClose();
+            } else {
+                toast.error(result.error || "Failed to add comment");
+            }
+        } catch (error) {
+            console.error("Error submitting comment:", error);
+            toast.error("An error occurred");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleStyleApply = (tag: string) => {
@@ -356,14 +385,24 @@ ${textToProcess}`;
                             <Button 
                                 variant="outline" 
                                 onClick={() => setView('menu')}
+                                disabled={isLoading}
+                                size="sm"
                             >
                                 Back
                             </Button>
                             <Button 
                                 onClick={handleCommentSubmit}
-                                className=""
+                                disabled={isLoading || !comment.trim()}
+                                size="sm"
                             >
-                                Save
+                                {isLoading ? (
+                                    <>
+                                        <Loader2 className="size-3.5 animate-spin mr-1.5" />
+                                        Saving...
+                                    </>
+                                ) : (
+                                    "Save"
+                                )}
                             </Button>
                         </div>
                     </div>
