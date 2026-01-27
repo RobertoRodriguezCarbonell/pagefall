@@ -28,7 +28,7 @@ export default function NotePageClient({ note }: NotePageClientProps) {
     // Selection popup state
     const [selectionPopup, setSelectionPopup] = useState<{
         text: string;
-        position: { top: number; left: number };
+        position: { top: number; left: number; placement?: 'top' | 'bottom' };
     } | null>(null);
 
     const handleEditorReady = useCallback((insertFn: (text: string) => void, replaceFn: (text: string) => void, getHTMLFn: () => string, replaceSelectionFn: (text: string) => void) => {
@@ -38,7 +38,7 @@ export default function NotePageClient({ note }: NotePageClientProps) {
         setReplaceSelectionFn(() => replaceSelectionFn);
     }, []);
 
-    const handleTextSelection = useCallback((text: string, position: { top: number; left: number }) => {
+    const handleTextSelection = useCallback((text: string, position: { top: number; left: number; placement?: 'top' | 'bottom' }) => {
         setSelectionPopup({ text, position });
     }, []);
 

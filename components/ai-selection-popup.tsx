@@ -9,7 +9,7 @@ import { toast } from "sonner";
 
 interface AISelectionPopupProps {
     selectedText: string;
-    position: { top: number; left: number };
+    position: { top: number; left: number; placement?: 'top' | 'bottom' };
     onClose: () => void;
     onApply: (newText: string) => void;
 }
@@ -136,6 +136,7 @@ Provide a helpful, concise answer to their question. You can explain, analyze, o
                     style={{
                         top: `${position.top}px`,
                         left: `${position.left}px`,
+                        transform: position.placement === 'top' ? 'translateY(-100%)' : 'none'
                     }}
                 >
                     <Sparkles className="size-3.5 text-purple-500" />
@@ -159,6 +160,7 @@ Provide a helpful, concise answer to their question. You can explain, analyze, o
                 style={{
                     top: `${position.top}px`,
                     left: `${position.left}px`,
+                    transform: position.placement === 'top' ? 'translateY(-100%)' : 'none'
                 }}
             >
                 <div className="p-4">

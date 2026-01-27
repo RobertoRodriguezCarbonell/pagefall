@@ -66,7 +66,7 @@ interface RichTextEditorProps {
   noteId?: string;
   noteTitle?: string;
   onEditorReady?: (insertFn: (text: string) => void, replaceFn: (text: string) => void, getHTMLFn: () => string, replaceSelectionFn: (text: string) => void) => void;
-  onTextSelection?: (text: string, position: { top: number; left: number }) => void;
+  onTextSelection?: (text: string, position: { top: number; left: number; placement?: 'top' | 'bottom' }) => void;
 }
 
 const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelection }: RichTextEditorProps) => {
@@ -131,10 +131,16 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
           const start = view.coordsAtPos(from);
           const end = view.coordsAtPos(to);
           
-          // Position popup below the selection
+          // Check if close to bottom
+          const viewportHeight = window.innerHeight;
+          const spaceBelow = viewportHeight - end.bottom;
+          const showAbove = spaceBelow < 400; // Heuristic for expanded popup height
+          
+          // Position popup
           const position = {
-            top: end.bottom + 8,
+            top: showAbove ? start.top - 8 : end.bottom + 8,
             left: start.left,
+            placement: showAbove ? 'top' : 'bottom' as 'top' | 'bottom'
           };
           
           onTextSelection(selectedText, position);
