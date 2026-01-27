@@ -3,19 +3,28 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Sparkles, MessageCircle, Wand2, MessageSquarePlus } from "lucide-react";
+import { Loader2, Sparkles, MessageCircle, Wand2, MessageSquarePlus, Type, Heading1, Heading2, Heading3, Pilcrow, Bold, Italic, Strikethrough, Code, List, ListOrdered, Quote, Check } from "lucide-react";
 import { getOpenAIApiKey } from "@/server/settings";
 import { toast } from "sonner";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+    DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 interface AISelectionPopupProps {
     selectedText: string;
     position: { top: number; left: number; placement?: 'top' | 'bottom' };
     onClose: () => void;
-    onApply: (newText: string) => void;
+    onApply: (newText: string, isManual?: boolean) => void;
+    onToggleStyle?: (style: string) => void;
+    activeStyles?: Record<string, boolean>;
     noteTitle?: string;
 }
 
-export function AISelectionPopup({ selectedText, position, onClose, onApply, noteTitle }: AISelectionPopupProps) {
+export function AISelectionPopup({ selectedText, position, onClose, onApply, onToggleStyle, activeStyles, noteTitle }: AISelectionPopupProps) {
     const [instruction, setInstruction] = useState("");
     const [comment, setComment] = useState("");
     const [isLoading, setIsLoading] = useState(false);
@@ -43,6 +52,44 @@ export function AISelectionPopup({ selectedText, position, onClose, onApply, not
     const handleCommentSubmit = () => {
         if (!comment.trim()) return;
         toast.success("Comment functionality coming soon");
+        onClose();
+    };
+
+    const handleStyleApply = (tag: string) => {
+        if (onToggleStyle) {
+            onToggleStyle(tag);
+            onClose();
+            return;
+        }
+
+        // Fallback or legacy handling if onToggleStyle is not provided
+        const normalizedText = selectedText.trim();
+        let newContent = normalizedText;
+
+        switch (tag) {
+            case 'p':
+            case 'h1':
+            case 'h2':
+            case 'h3':
+            case 'blockquote':
+                newContent = `<${tag}>${normalizedText}</${tag}>`;
+                break;
+            case 'ul':
+                newContent = `<ul><li>${normalizedText}</li></ul>`;
+                break;
+            case 'ol':
+                newContent = `<ol><li>${normalizedText}</li></ol>`;
+                break;
+            case 'strong': // Mapped from 'bold' if needed, but tag passed is 'bold' usually
+                newContent = `<strong>${normalizedText}</strong>`;
+                break;
+            case 'em':
+                 newContent = `<em>${normalizedText}</em>`;
+                 break;
+             // ... other cases
+        }
+
+        onApply(newContent, true);
         onClose();
     };
 
@@ -194,6 +241,71 @@ ${textToProcess}`;
                         <Sparkles className="size-3.5 text-purple-500" />
                         <span className="text-xs font-semibold">Ask AI</span>
                     </button>
+                    
+                    <div className="w-px h-4 bg-border" />
+
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                             <button
+                                className="flex items-center gap-2 px-3 py-1.5 hover:bg-accent rounded-full transition-colors text-muted-foreground hover:text-foreground"
+                            >
+                                <Type className="size-3.5" />
+                                <span className="text-xs font-medium">Style</span>
+                            </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="center" side="top" className="w-48 max-h-64 overflow-y-auto">
+                            <DropdownMenuItem onSelect={() => handleStyleApply('p')} className="text-xs justify-between">
+                                <span className="flex items-center"><Pilcrow className="mr-2 size-3.5" /> Text</span>
+                                {activeStyles?.p && <Check className="size-3.5" />}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleStyleApply('h1')} className="text-xs justify-between">
+                                <span className="flex items-center"><Heading1 className="mr-2 size-3.5" /> Heading 1</span>
+                                {activeStyles?.h1 && <Check className="size-3.5" />}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleStyleApply('h2')} className="text-xs justify-between">
+                                <span className="flex items-center"><Heading2 className="mr-2 size-3.5" /> Heading 2</span>
+                                {activeStyles?.h2 && <Check className="size-3.5" />}
+                            </DropdownMenuItem>
+                             <DropdownMenuItem onSelect={() => handleStyleApply('h3')} className="text-xs justify-between">
+                                <span className="flex items-center"><Heading3 className="mr-2 size-3.5" /> Heading 3</span>
+                                {activeStyles?.h3 && <Check className="size-3.5" />}
+                            </DropdownMenuItem>
+                            
+                            <DropdownMenuSeparator />
+                            
+                            <DropdownMenuItem onSelect={() => handleStyleApply('bold')} className="text-xs justify-between">
+                                <span className="flex items-center"><Bold className="mr-2 size-3.5" /> Bold</span>
+                                {activeStyles?.bold && <Check className="size-3.5" />}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleStyleApply('italic')} className="text-xs justify-between">
+                                <span className="flex items-center"><Italic className="mr-2 size-3.5" /> Italic</span>
+                                {activeStyles?.italic && <Check className="size-3.5" />}
+                            </DropdownMenuItem>
+                             <DropdownMenuItem onSelect={() => handleStyleApply('strike')} className="text-xs justify-between">
+                                <span className="flex items-center"><Strikethrough className="mr-2 size-3.5" /> Strike</span>
+                                {activeStyles?.strike && <Check className="size-3.5" />}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleStyleApply('code')} className="text-xs justify-between">
+                                <span className="flex items-center"><Code className="mr-2 size-3.5" /> Code</span>
+                                {activeStyles?.code && <Check className="size-3.5" />}
+                            </DropdownMenuItem>
+
+                            <DropdownMenuSeparator />
+
+                            <DropdownMenuItem onSelect={() => handleStyleApply('bulletList')} className="text-xs justify-between">
+                                <span className="flex items-center"><List className="mr-2 size-3.5" /> Bullet List</span>
+                                {activeStyles?.bulletList && <Check className="size-3.5" />}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleStyleApply('orderedList')} className="text-xs justify-between">
+                                <span className="flex items-center"><ListOrdered className="mr-2 size-3.5" /> Numbered</span>
+                                {activeStyles?.orderedList && <Check className="size-3.5" />}
+                            </DropdownMenuItem>
+                             <DropdownMenuItem onSelect={() => handleStyleApply('blockquote')} className="text-xs justify-between">
+                                <span className="flex items-center"><Quote className="mr-2 size-3.5" /> Quote</span>
+                                {activeStyles?.blockquote && <Check className="size-3.5" />}
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                     
                     <div className="w-px h-4 bg-border" />
                     

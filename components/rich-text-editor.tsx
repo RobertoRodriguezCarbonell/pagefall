@@ -65,8 +65,15 @@ interface RichTextEditorProps {
   content?: JSONContent[];
   noteId?: string;
   noteTitle?: string;
-  onEditorReady?: (insertFn: (text: string) => void, replaceFn: (text: string) => void, getHTMLFn: () => string, replaceSelectionFn: (text: string) => void) => void;
-  onTextSelection?: (text: string, position: { top: number; left: number; placement?: 'top' | 'bottom' }) => void;
+  onEditorReady?: (
+    insertFn: (text: string) => void, 
+    replaceFn: (text: string) => void, 
+    getHTMLFn: () => string, 
+    replaceSelectionFn: (text: string) => void, 
+    manualReplaceFn: (text: string) => void,
+    toggleStyleFn: (style: string) => void
+  ) => void;
+  onTextSelection?: (text: string, position: { top: number; left: number; placement?: 'top' | 'bottom' }, activeStyles?: Record<string, boolean>) => void;
 }
 
 const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelection }: RichTextEditorProps) => {
@@ -143,7 +150,20 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
             placement: showAbove ? 'top' : 'bottom' as 'top' | 'bottom'
           };
           
-          onTextSelection(selectedText, position);
+          const activeStyles = {
+            bold: editor.isActive('bold'),
+            italic: editor.isActive('italic'),
+            strike: editor.isActive('strike'),
+            code: editor.isActive('code'),
+            h1: editor.isActive('heading', { level: 1 }),
+            h2: editor.isActive('heading', { level: 2 }),
+            h3: editor.isActive('heading', { level: 3 }),
+            bulletList: editor.isActive('bulletList'),
+            orderedList: editor.isActive('orderedList'),
+            blockquote: editor.isActive('blockquote'),
+          };
+
+          onTextSelection(selectedText, position, activeStyles);
           
           // Restore selection after popup opens to keep text highlighted
           setTimeout(() => {
@@ -376,6 +396,53 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
         
         setHasSuggestions(true);
       };
+
+      const manualReplaceSelection = (html: string) => {
+          // Similar list logic but WITHOUT aiSuggestion mark
+           const inList = editor.isActive('listItem');
+           let contentToInsert = html;
+
+           if (inList) {
+             try {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = html;
+                const listElement = tempDiv.querySelector('ul, ol');
+                if (listElement) {
+                    const lis = listElement.querySelectorAll('li');
+                    const { $from } = editor.state.selection;
+                    const isParentEmpty = $from.parent.content.size === 0;
+                     if (isParentEmpty && lis.length > 0) {
+                         const firstPart = lis[0].innerHTML;
+                         const secondPart = Array.from(lis).slice(1).map(li => li.outerHTML).join('');
+                         contentToInsert = firstPart + secondPart;
+                     } else {
+                         contentToInsert = Array.from(lis).map(li => li.outerHTML).join('');
+                     }
+                }
+             } catch(e) { }
+           }
+
+          editor.chain().deleteSelection().insertContent(contentToInsert).run();
+      }
+
+      const toggleStyle = (style: string) => {
+        console.log("📝 Editor toggleStyle called with:", style);
+        const chain = editor.chain().focus();
+        
+        switch (style) {
+            case 'bold': chain.toggleBold().run(); break;
+            case 'italic': chain.toggleItalic().run(); break;
+            case 'strike': chain.toggleStrike().run(); break;
+            case 'code': chain.toggleCode().run(); break;
+            case 'h1': chain.toggleHeading({ level: 1 }).run(); break;
+            case 'h2': chain.toggleHeading({ level: 2 }).run(); break;
+            case 'h3': chain.toggleHeading({ level: 3 }).run(); break;
+            case 'bulletList': chain.toggleBulletList().run(); break;
+            case 'orderedList': chain.toggleOrderedList().run(); break;
+            case 'blockquote': chain.toggleBlockquote().run(); break;
+            case 'p': chain.setParagraph().run(); break;
+        }
+      }
       
       // Helper to estimate text length of HTML string for selection
       const tempDivContentLength = (html: string) => {
@@ -386,7 +453,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
           } catch (e) { return 0; }
       }
       
-      onEditorReady(insertContent, replaceContent, getHTML, replaceSelection);
+      onEditorReady(insertContent, replaceContent, getHTML, replaceSelection, manualReplaceSelection, toggleStyle);
     }
   }, [editor, onEditorReady]);
 
