@@ -1,7 +1,7 @@
 "use client";
 
 import { PageWrapper } from "@/components/page-wrapper";
-import RichTextEditor from "@/components/rich-text-editor";
+import dynamic from "next/dynamic";
 import { AIChat } from "@/components/ai-chat";
 import { AISelectionPopup } from "@/components/ai-selection-popup";
 import { CommentsPanel } from "@/components/comments-panel";
@@ -10,6 +10,10 @@ import { useState, useCallback, useEffect } from "react";
 import { getCommentsByNoteId } from "@/server/comments";
 import { MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+const RichTextEditor = dynamic(() => import("@/components/rich-text-editor"), {
+    ssr: false,
+});
 
 interface NotePageClientProps {
     note: {
@@ -31,6 +35,7 @@ export default function NotePageClient({ note }: NotePageClientProps) {
     const [manualReplaceFn, setManualReplaceFn] = useState<((text: string) => void) | null>(null);
     const [toggleStyleFn, setToggleStyleFn] = useState<((style: string) => void) | null>(null);
     const [setCommentMarkFn, setSetCommentMarkFn] = useState<((commentId: string, from: number, to: number) => void) | null>(null);
+    const [removeCommentMarkFn, setRemoveCommentMarkFn] = useState<((commentId: string) => void) | null>(null);
     
     // Comments state
     const [comments, setComments] = useState<any[]>([]);
@@ -52,7 +57,8 @@ export default function NotePageClient({ note }: NotePageClientProps) {
         replaceSelectionFn: (text: string) => void, 
         manualReplaceFn: (text: string) => void,
         toggleStyleFn: (style: string) => void,
-        setCommentMarkFn: (commentId: string, from: number, to: number) => void
+        setCommentMarkFn: (commentId: string, from: number, to: number) => void,
+        removeCommentMarkFn: (commentId: string) => void
     ) => {
         setInsertContentFn(() => insertFn);
         setReplaceContentFn(() => replaceFn);
@@ -61,6 +67,7 @@ export default function NotePageClient({ note }: NotePageClientProps) {
         setManualReplaceFn(() => manualReplaceFn);
         setToggleStyleFn(() => toggleStyleFn);
         setSetCommentMarkFn(() => setCommentMarkFn);
+        setRemoveCommentMarkFn(() => removeCommentMarkFn);
     }, []);
 
     const handleTextSelection = useCallback((text: string, position: { top: number; left: number; placement?: 'top' | 'bottom' }, activeStyles?: Record<string, boolean>, noteId?: string, selectionRange?: { from: number; to: number }) => {
@@ -114,6 +121,13 @@ export default function NotePageClient({ note }: NotePageClientProps) {
         }
     }, [setCommentMarkFn, selectionPopup, fetchComments]);
 
+    const handleCommentDeleted = useCallback((commentId: string) => {
+        if (removeCommentMarkFn) {
+            removeCommentMarkFn(commentId);
+            fetchComments();
+        }
+    }, [removeCommentMarkFn, fetchComments]);
+
     return (
         <PageWrapper breadcrumbs={[
             { label: "Dashboard", href: "/dashboard" },
@@ -157,7 +171,7 @@ export default function NotePageClient({ note }: NotePageClientProps) {
                 {/* Comments Panel */}
                 {showComments && (
                     <div className="shrink-0 w-80 h-full border-l bg-background overflow-y-auto">
-                        <CommentsPanel comments={comments} onCommentUpdate={fetchComments} />
+                        <CommentsPanel comments={comments} onCommentUpdate={fetchComments} onCommentDeleted={handleCommentDeleted} />
                     </div>
                 )}
 

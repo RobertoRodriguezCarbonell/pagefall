@@ -28,9 +28,10 @@ interface Comment {
 interface CommentsPanelProps {
   comments: Comment[];
   onCommentUpdate: () => void;
+  onCommentDeleted?: (commentId: string) => void;
 }
 
-export function CommentsPanel({ comments, onCommentUpdate }: CommentsPanelProps) {
+export function CommentsPanel({ comments, onCommentUpdate, onCommentDeleted }: CommentsPanelProps) {
   const handleToggleResolved = async (commentId: string, currentResolved: boolean) => {
     const result = await updateCommentResolved(commentId, !currentResolved);
     if (result.success) {
@@ -42,6 +43,11 @@ export function CommentsPanel({ comments, onCommentUpdate }: CommentsPanelProps)
   };
 
   const handleDelete = async (commentId: string) => {
+    // Remove the mark from the editor first
+    if (onCommentDeleted) {
+      onCommentDeleted(commentId);
+    }
+    
     const result = await deleteComment(commentId);
     if (result.success) {
       toast.success("Comment deleted");

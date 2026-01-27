@@ -77,7 +77,8 @@ interface RichTextEditorProps {
     replaceSelectionFn: (text: string) => void, 
     manualReplaceFn: (text: string) => void,
     toggleStyleFn: (style: string) => void,
-    setCommentMarkFn: (commentId: string, from: number, to: number) => void
+    setCommentMarkFn: (commentId: string, from: number, to: number) => void,
+    removeCommentMarkFn: (commentId: string) => void
   ) => void;
   onTextSelection?: (text: string, position: { top: number; left: number; placement?: 'top' | 'bottom' }, activeStyles?: Record<string, boolean>, noteId?: string, selectionRange?: { from: number; to: number }) => void;
 }
@@ -468,7 +469,28 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
           .run();
       };
       
-      onEditorReady(insertContent, replaceContent, getHTML, replaceSelection, manualReplaceSelection, toggleStyle, setCommentMark);
+      const removeCommentMark = (commentId: string) => {
+        console.log("📝 Editor removeCommentMark called:", commentId);
+        // Find all marks with this commentId and remove them
+        const { doc, tr } = editor.state;
+        let transaction = tr;
+        
+        doc.descendants((node, pos) => {
+          if (node.isText) {
+            node.marks.forEach(mark => {
+              if (mark.type.name === 'commentMark' && mark.attrs.commentId === commentId) {
+                const from = pos;
+                const to = pos + node.nodeSize;
+                transaction = transaction.removeMark(from, to, mark.type);
+              }
+            });
+          }
+        });
+        
+        editor.view.dispatch(transaction);
+      };
+      
+      onEditorReady(insertContent, replaceContent, getHTML, replaceSelection, manualReplaceSelection, toggleStyle, setCommentMark, removeCommentMark);
     }
   }, [editor, onEditorReady]);
 
