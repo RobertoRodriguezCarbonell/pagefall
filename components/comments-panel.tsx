@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { updateCommentResolved, deleteComment } from "@/server/comments";
 import { toast } from "sonner";
+import { useEffect, useRef } from "react";
 
 interface Comment {
   id: string;
@@ -29,9 +30,32 @@ interface CommentsPanelProps {
   comments: Comment[];
   onCommentUpdate: () => void;
   onCommentDeleted?: (commentId: string) => void;
+  selectedCommentId?: string | null;
+  onCommentSelect?: (commentId: string | null) => void;
 }
 
-export function CommentsPanel({ comments, onCommentUpdate, onCommentDeleted }: CommentsPanelProps) {
+export function CommentsPanel({ comments, onCommentUpdate, onCommentDeleted, selectedCommentId, onCommentSelect }: CommentsPanelProps) {
+  const selectedCardRef = useRef<HTMLDivElement>(null);
+  
+  // Scroll to selected comment when it changes
+  useEffect(() => {
+    console.log('🎯 Selected comment ID changed:', selectedCommentId);
+    if (selectedCommentId && selectedCardRef.current) {
+      console.log('📜 Scrolling to selected comment card');
+      selectedCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      
+      // Clear selection after 3 seconds
+      const timeout = setTimeout(() => {
+        console.log('⏱️ Clearing comment selection after 3s');
+        if (onCommentSelect) {
+          onCommentSelect(null);
+        }
+      }, 3000);
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [selectedCommentId, onCommentSelect]);
+  
   const handleToggleResolved = async (commentId: string, currentResolved: boolean) => {
     const result = await updateCommentResolved(commentId, !currentResolved);
     if (result.success) {
@@ -69,14 +93,20 @@ export function CommentsPanel({ comments, onCommentUpdate, onCommentDeleted }: C
 
   return (
     <div className="space-y-3 p-4">
-      {comments.map((comment) => (
-        <div
-          key={comment.id}
-          data-comment-id={comment.id}
-          className={`relative bg-card border rounded-lg p-3 shadow-sm transition-all hover:shadow-md ${
-            comment.resolved ? "opacity-60 border-green-500/20" : "border-border"
-          }`}
-        >
+      {comments.map((comment) => {
+        const isSelected = comment.id === selectedCommentId;
+        console.log('🔍 Rendering comment:', comment.id, 'isSelected:', isSelected, 'selectedCommentId:', selectedCommentId);
+        return (
+          <div
+            key={comment.id}
+            ref={isSelected ? selectedCardRef : null}
+            data-comment-id={comment.id}
+            className={`relative bg-card border rounded-lg p-3 shadow-sm transition-all hover:shadow-md ${
+              comment.resolved ? "opacity-60 border-green-500/20" : "border-border"
+            } ${
+              isSelected ? "border-primary animate-pulse ring-2 ring-primary/50" : ""
+            }`}
+          >
           {comment.resolved && (
             <div className="absolute top-2 right-2">
               <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full">
@@ -140,7 +170,8 @@ export function CommentsPanel({ comments, onCommentUpdate, onCommentDeleted }: C
           
           <p className="text-sm text-foreground leading-relaxed">{comment.content}</p>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

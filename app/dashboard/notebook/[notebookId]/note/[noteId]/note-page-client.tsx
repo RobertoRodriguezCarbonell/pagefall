@@ -40,6 +40,12 @@ export default function NotePageClient({ note }: NotePageClientProps) {
     // Comments state
     const [comments, setComments] = useState<any[]>([]);
     const [showComments, setShowComments] = useState(false);
+    const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
+    
+    const handleCommentClick = useCallback((commentId: string) => {
+        console.log('📍 Comment selected:', commentId);
+        setSelectedCommentId(commentId);
+    }, []);
     
     // Load comments visibility state from localStorage after mount
     useEffect(() => {
@@ -181,6 +187,7 @@ export default function NotePageClient({ note }: NotePageClientProps) {
                             showComments={showComments}
                             onEditorReady={handleEditorReady}
                             onTextSelection={handleTextSelection}
+                            onCommentClick={handleCommentClick}
                         />
                     </div>
                 </div>
@@ -188,7 +195,13 @@ export default function NotePageClient({ note }: NotePageClientProps) {
                 {/* Comments Panel */}
                 {showComments && (
                     <div className="shrink-0 w-80 h-full border-l bg-background overflow-y-auto">
-                        <CommentsPanel comments={comments} onCommentUpdate={fetchComments} onCommentDeleted={handleCommentDeleted} />
+                        <CommentsPanel 
+                            comments={comments} 
+                            onCommentUpdate={fetchComments} 
+                            onCommentDeleted={handleCommentDeleted}
+                            selectedCommentId={selectedCommentId}
+                            onCommentSelect={setSelectedCommentId}
+                        />
                     </div>
                 )}
 
