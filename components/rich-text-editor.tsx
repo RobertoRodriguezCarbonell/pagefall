@@ -799,9 +799,9 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
   };
 
   return (
-    <div className="w-full max-w-7xl bg-card text-card-foreground rounded-lg overflow-hidden border">
+    <div className="w-full max-w-7xl bg-card text-card-foreground rounded-lg border">
 
-      <div className="flex items-center gap-1 p-2 bg-muted/50 border-b">
+      <div className="sticky top-0 z-20 flex items-center gap-1 p-2 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/50 border-b rounded-t-lg">
         <Button
           variant="ghost"
           size="sm"
@@ -1076,7 +1076,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
         </Button>
       </div>
 
-      <div ref={editorRef} className="min-h-96 p-6 bg-card">
+      <div ref={editorRef} className="min-h-96 p-6 bg-card rounded-b-lg">
         <EditorContent
           editor={editor}
           className="prose prose-neutral dark:prose-invert max-w-none focus:outline-none [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:min-h-96 [&_.ProseMirror_h1]:text-3xl [&_.ProseMirror_h1]:font-bold [&_.ProseMirror_h1]:mb-4 [&_.ProseMirror_h2]:text-2xl [&_.ProseMirror_h2]:font-bold [&_.ProseMirror_h2]:mb-3 [&_.ProseMirror_p]:mb-4 [&_.ProseMirror_blockquote]:border-l-4 [&_.ProseMirror_blockquote]:border-border [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:italic [&_.ProseMirror_pre]:bg-muted [&_.ProseMirror_pre]:p-4 [&_.ProseMirror_pre]:rounded [&_.ProseMirror_pre]:overflow-x-auto [&_.ProseMirror_code]:bg-muted [&_.ProseMirror_code]:px-1 [&_.ProseMirror_code]:rounded [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:marker:text-foreground [&_a]:text-blue-500 [&_a]:underline [&_a]:cursor-pointer"
