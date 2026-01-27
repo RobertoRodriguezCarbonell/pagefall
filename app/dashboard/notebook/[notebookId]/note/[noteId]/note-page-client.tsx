@@ -43,7 +43,6 @@ export default function NotePageClient({ note }: NotePageClientProps) {
     const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
     
     const handleCommentClick = useCallback((commentId: string) => {
-        console.log('📍 Comment selected:', commentId);
         setSelectedCommentId(commentId);
     }, []);
     

@@ -12,6 +12,30 @@ import { updateCommentResolved, deleteComment } from "@/server/comments";
 import { toast } from "sonner";
 import { useEffect, useRef } from "react";
 
+// Function to convert URLs in text to clickable links
+const linkify = (text: string) => {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  
+  return parts.map((part, index) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a
+          key={index}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-500 hover:text-blue-600 underline underline-offset-2 break-all"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+};
+
 interface Comment {
   id: string;
   content: string;
@@ -39,14 +63,11 @@ export function CommentsPanel({ comments, onCommentUpdate, onCommentDeleted, sel
   
   // Scroll to selected comment when it changes
   useEffect(() => {
-    console.log('🎯 Selected comment ID changed:', selectedCommentId);
     if (selectedCommentId && selectedCardRef.current) {
-      console.log('📜 Scrolling to selected comment card');
       selectedCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
       
       // Clear selection after 3 seconds
       const timeout = setTimeout(() => {
-        console.log('⏱️ Clearing comment selection after 3s');
         if (onCommentSelect) {
           onCommentSelect(null);
         }
@@ -95,7 +116,6 @@ export function CommentsPanel({ comments, onCommentUpdate, onCommentDeleted, sel
     <div className="space-y-3 p-4">
       {comments.map((comment) => {
         const isSelected = comment.id === selectedCommentId;
-        console.log('🔍 Rendering comment:', comment.id, 'isSelected:', isSelected, 'selectedCommentId:', selectedCommentId);
         return (
           <div
             key={comment.id}
@@ -168,7 +188,9 @@ export function CommentsPanel({ comments, onCommentUpdate, onCommentDeleted, sel
             </div>
           )}
           
-          <p className="text-sm text-foreground leading-relaxed">{comment.content}</p>
+          <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap break-words">
+            {linkify(comment.content)}
+          </div>
         </div>
         );
       })}

@@ -463,12 +463,9 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
       }
       
       const setCommentMark = (commentId: string, from: number, to: number) => {
-        console.log("📝 Editor setCommentMark called:", { commentId, from, to });
-        
         // Validate positions
         const docSize = editor.state.doc.content.size;
         if (from < 0 || to > docSize || from >= to) {
-          console.error("❌ Invalid positions for comment mark:", { from, to, docSize });
           return;
         }
         
@@ -476,19 +473,9 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
           .setTextSelection({ from, to })
           .setCommentMark(commentId)
           .run();
-        
-        // Log the applied mark
-        const { doc } = editor.state;
-        doc.nodesBetween(from, to, (node, pos) => {
-          if (node.isText) {
-            const marks = node.marks.filter(m => m.type.name === 'commentMark');
-            console.log("✅ Applied marks:", marks.map(m => ({ type: m.type.name, attrs: m.attrs })));
-          }
-        });
       };
       
       const removeCommentMark = (commentId: string) => {
-        console.log("📝 Editor removeCommentMark called:", commentId);
         // Find all marks with this commentId and remove them
         const { doc, tr } = editor.state;
         let transaction = tr;
@@ -533,8 +520,6 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
         editorContainer.classList.remove('show-comments');
       }
     }
-    
-    console.log('💬 Comment visibility toggled:', showComments, 'ProseMirror classes:', proseMirrorElement.className);
   }, [editor, showComments]);
 
   // Handle clicks on comment highlights
@@ -542,16 +527,11 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
     if (!editor || !onCommentClick) return;
     
     const handleClick = (event: MouseEvent) => {
-      console.log('🖱️ Click detected on editor');
       const target = event.target as HTMLElement;
-      console.log('🎯 Target element:', target.tagName, target.className, target);
-      
       const commentElement = target.closest('[data-comment-id]');
-      console.log('📍 Found comment element:', commentElement);
       
       if (commentElement) {
         const commentId = commentElement.getAttribute('data-comment-id');
-        console.log('🖱️ Comment clicked:', commentId);
         if (commentId) {
           onCommentClick(commentId);
         }
@@ -559,11 +539,9 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
     };
     
     const proseMirror = editor.view.dom;
-    console.log('✅ Adding click listener to ProseMirror:', proseMirror);
     proseMirror.addEventListener('click', handleClick);
     
     return () => {
-      console.log('🧹 Removing click listener');
       proseMirror.removeEventListener('click', handleClick);
     };
   }, [editor, onCommentClick]);

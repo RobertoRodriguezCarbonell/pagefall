@@ -359,32 +359,55 @@ ${textToProcess}`;
             <>
                 <div className="fixed inset-0 z-40" onClick={onClose} />
                 <div
-                    className="fixed z-50 w-100 bg-background border rounded-lg shadow-xl animate-in fade-in zoom-in-95 duration-200"
+                    className="fixed z-50 w-[400px] bg-background border rounded-lg shadow-xl animate-in fade-in zoom-in-95 duration-200"
                     style={{
                         top: `${position.top}px`,
                         left: `${position.left}px`,
                         transform: position.placement === 'top' ? 'translateY(-100%)' : 'none'
                     }}
                 >
-                    <div className="p-3">
-                        <div className="flex items-center justify-between mb-2">
+                    <div className="p-4">
+                        <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
                                 <div className="p-1.5 rounded bg-blue-500/10">
-                                    <MessageSquarePlus className="size-3.5 text-blue-500" />
+                                    <MessageSquarePlus className="size-4 text-blue-500" />
                                 </div>
-                                <span className="text-xs font-medium text-foreground">Add comment</span>
+                                <span className="text-sm font-medium text-foreground">Add comment</span>
                             </div>
-                            <span className="text-[10px] text-muted-foreground">{selectedText.length > 20 ? selectedText.substring(0, 20) + '...' : selectedText}</span>
                         </div>
                         
-                        <Input
-                            ref={commentInputRef}
-                            value={comment}
-                            onChange={(e) => setComment(e.target.value)}
-                            onKeyDown={handleKeyPress}
-                            placeholder="Type your comment..."
-                            className="h-9 text-sm mb-2"
-                        />
+                        {/* Selected text preview */}
+                        <div className="mb-3 p-2 bg-muted/50 rounded-md border">
+                            <p className="text-xs text-muted-foreground italic">
+                                "{selectedText.length > 100 ? selectedText.substring(0, 100) + '...' : selectedText}"
+                            </p>
+                        </div>
+                        
+                        {/* Auto-expanding textarea */}
+                        <div className="mb-3">
+                            <textarea
+                                ref={commentInputRef as any}
+                                value={comment}
+                                onChange={(e) => {
+                                    setComment(e.target.value);
+                                    // Auto-resize
+                                    e.target.style.height = 'auto';
+                                    e.target.style.height = e.target.scrollHeight + 'px';
+                                }}
+                                onKeyDown={handleKeyPress}
+                                placeholder="Write your comment here..."
+                                className="w-full min-h-[80px] max-h-[300px] p-3 text-sm border rounded-md bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                style={{ overflow: 'hidden' }}
+                            />
+                            <div className="flex items-center justify-between mt-1.5">
+                                <span className="text-xs text-muted-foreground">
+                                    {comment.length} characters
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                    Press Ctrl+Enter to save
+                                </span>
+                            </div>
+                        </div>
                         
                         <div className="flex justify-end gap-2">
                             <Button 
@@ -406,7 +429,10 @@ ${textToProcess}`;
                                         Saving...
                                     </>
                                 ) : (
-                                    "Save"
+                                    <>
+                                        <Check className="size-3.5 mr-1.5" />
+                                        Save Comment
+                                    </>
                                 )}
                             </Button>
                         </div>
