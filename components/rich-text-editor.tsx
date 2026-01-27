@@ -18,6 +18,7 @@ import SuperscriptExtension from "@tiptap/extension-superscript";
 import { DOMParser } from "@tiptap/pm/model";
 import { AISuggestion } from "@/lib/tiptap-ai-suggestion";
 import { CommentMark } from "@/lib/tiptap-comment-mark";
+import { SlashCommand, slashCommandSuggestion } from "./slash-command";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
@@ -58,7 +59,7 @@ import {
   FileDown,
   Sparkles,
 } from "lucide-react";
-import { updateNote, saveNoteContent } from "@/server/notes";
+import { saveNoteContent } from "@/server/notes";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas-pro";
@@ -100,6 +101,9 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
       Text,
       AISuggestion,
       CommentMark,
+      SlashCommand.configure({
+        suggestion: slashCommandSuggestion,
+      }),
       UnderlineExtension,
       LinkExtension.configure({
         openOnClick: false,
