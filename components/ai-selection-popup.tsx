@@ -58,7 +58,13 @@ export function AISelectionPopup({ selectedText, position, onClose, onApply }: A
 
 The user wants you to: ${textToProcess}
 
-Respond with ONLY the modified HTML content (using <p>, <ul>, <li>, <strong>, etc.). Do not wrap in markdown code blocks. Just the raw HTML string provided directly. IMPORTANT: Do not include ANY bullet characters (•, -, *) or numbering inside <li> tags. The HTML tags handle the list formatting.`
+Respond with ONLY the modified HTML content.
+RULES:
+1. Use semantic HTML tags (<p>, <ul>, <li>, <strong>, etc.).
+2. If the user input is a list, or the user asks for a list/bullets, YOU MUST return a <ul> or <ol> list with <li> items. Do NOT return a series of <p> tags for lists.
+3. Do NOT include any physical bullet characters (•, -, *) or numbering (1., 2.) inside the text content of <li> tags. The HTML tags handle the formatting automatically.
+4. Do not wrap code in markdown blocks (no \`\`\`html).
+5. Just return the raw HTML string.`
                 : `You are an AI assistant. The user has selected this text:
 
 "${selectedText}"

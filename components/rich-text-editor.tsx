@@ -165,16 +165,77 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
   useEffect(() => {
     if (editor && onEditorReady) {
       const cleanAIResponse = (response: string) => {
-        // Remove markdown code block markers if present
-        let clean = response.replace(/```html/g, '').replace(/```/g, '');
-        
-        // Remove manual bullets/numbers inside list items to prevent double bullets
-        // Matches <li> followed by bullet/number and optional whitespace
-        clean = clean.replace(/(<li[^>]*>)\s*(?:[-•*]|\d+\.)\s*/gi, '$1');
-        // Matches <li><p> followed by bullet/number and optional whitespace
-        clean = clean.replace(/(<li[^>]*>\s*<p[^>]*>)\s*(?:[-•*]|\d+\.)\s*/gi, '$1');
-        
-        return clean;
+        try {
+          // Remove markdown code block markers first
+          let clean = response.replace(/```html/g, '').replace(/```/g, '');
+          
+          // Use a temporary div for permissive HTML parsing
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = clean;
+          
+          // 1. Remove manual bullets/numbers inside list items
+          const listItems = tempDiv.querySelectorAll('li');
+          listItems.forEach((li) => {
+            // Check for empty list items
+            const textContent = li.textContent || '';
+            const hasImages = li.querySelector('img') !== null;
+            
+            // If completely empty (no text, no images), remove it
+            if (!textContent.trim() && !hasImages) {
+              li.remove();
+              return;
+            }
+            
+            // Clean manual bullets at start of text nodes
+            li.childNodes.forEach(node => {
+              if (node.nodeType === Node.TEXT_NODE && node.textContent) {
+                // Regex to match bullets/numbers at start
+                node.textContent = node.textContent.replace(/^\s*(?:[-•*]|\d+\.)\s*/, '');
+              } else if (node.nodeName === 'P') { // Handle <p> inside <li>
+                 // Clean inside paragraph
+                 node.textContent = (node.textContent || '').replace(/^\s*(?:[-•*]|\d+\.)\s*/, '');
+                 
+                 // If p is identical to empty or just whitespace after cleaning
+                 if (!node.textContent?.trim() && !node.childNodes.length) {
+                    node.remove(); // Remove empty paragraph inside li
+                 }
+              }
+            });
+
+            // Re-check emptiness after cleaning children
+            if (!li.textContent?.trim() && !li.querySelector('img') && !li.children.length) {
+              li.remove();
+            }
+          });
+
+          // 2. Wrap root-level orphan <li> elements in <ul>
+          // This fixes the issue where inserting <li> without <ul> into an existing list
+          // causes Tiptap to merge them into paragraphs within a single list item
+          const newDiv = document.createElement('div');
+          let currentUl: HTMLUListElement | null = null;
+
+          Array.from(tempDiv.childNodes).forEach((node) => {
+            if (node.nodeName === 'LI') {
+              if (!currentUl) {
+                currentUl = document.createElement('ul');
+                newDiv.appendChild(currentUl);
+              }
+              currentUl.appendChild(node.cloneNode(true));
+            } else {
+              currentUl = null; // Break the list sequence
+              // Keep non-empty text or other elements
+              if (node.nodeType !== Node.TEXT_NODE || node.textContent?.trim()) {
+                newDiv.appendChild(node.cloneNode(true));
+              }
+            }
+          });
+
+          return newDiv.innerHTML;
+        } catch (e) {
+          console.error("Error cleaning AI response:", e);
+          // Fallback to regex if parsing fails
+          return response.replace(/```html/g, '').replace(/```/g, '');
+        }
       };
 
       const insertContent = (html: string) => {
@@ -248,31 +309,54 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
         const cleanedText = cleanAIResponse(text);
         console.log("📝 Editor replaceSelection called with:", cleanedText);
         const { from, to } = editor.state.selection;
-        const originalText = editor.state.doc.textBetween(from, to, ' ');
         
         // Generate unique suggestion ID
         const suggestionId = `suggestion-${Date.now()}`;
         
-        // Save original text before replacing
+        // Save original text before replacing history...
+        const originalText = editor.state.doc.textBetween(from, to, ' ');
         setSuggestionHistory(prev => {
           const newMap = new Map(prev);
           newMap.set(suggestionId, { originalText, from, to });
           return newMap;
         });
+
+        // Smart List Insertion Logic
+        // Check if we are inserting a list structure while already inside a list item
+        const inList = editor.isActive('listItem');
+        let contentToInsert = cleanedText;
         
-        // Delete and insert new content
+        if (inList) {
+          // Parse the content to see if it's a wrapper <ul>/<ol>
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = cleanedText;
+          const listElement = tempDiv.querySelector('ul, ol');
+          
+          if (listElement) {
+               console.log("📝 Detected insertion of List inside List. Stripping wrapper <ul> and cleaning whitespace...");
+               // Extract only the LI elements and join them directly with NO separator.
+               // This is critical because any whitespace (newlines/spaces) between <li> tags
+               // in the inserted string will be interpreted by Tiptap as text nodes,
+               // creating "ghost" empty list items containing that whitespace.
+               const lis = listElement.querySelectorAll('li');
+               contentToInsert = Array.from(lis).map(li => li.outerHTML).join('');
+          }
+        }
+        
+        // Execute replacement
         editor.chain()
           .focus()
           .deleteRange({ from, to })
-          .insertContent(cleanedText)
+          .insertContent(contentToInsert)
           .run();
         
         // Mark the newly inserted content
-        const newTo = from + cleanedText.length; // Approximate length for selection
-        // Recalculate 'to' based on actual inserted node size would be better but complex here
-        // We do a best effort selection end
+        const insertedLength = tempDivContentLength(cleanedText) || cleanedText.length;
+        // Use current selection end as the insertion point reference
+        const newPos = editor.state.selection.to;
+        
         editor.chain()
-          .setTextSelection({ from, to: from + (tempDivContentLength(cleanedText) || cleanedText.length) })
+          .setTextSelection({ from: Math.max(0, newPos - insertedLength), to: newPos })
           .setMark('aiSuggestion', { suggestionId })
           .focus()
           .run();

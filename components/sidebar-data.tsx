@@ -26,9 +26,12 @@ export function SidebarData({ data }: SidebarDataProps) {
         setMounted(true);
     }, []);
 
-    const filteredData = data.navMain.filter((item) => {
-        const notebooksMatches = item.title.toLowerCase().includes(search.toLowerCase());
+    // Use full data during SSR/Hydration to ensure match, then filter on client
+    const sourceData = mounted ? data.navMain : data.navMain;
 
+    const filteredData = sourceData.filter((item) => {
+        if (!mounted) return true; // Always show all on server/initial render
+        const notebooksMatches = item.title.toLowerCase().includes(search.toLowerCase());
         const noteMatches = item.items.some((note) => note.title.toLowerCase().includes(search.toLowerCase()));
 
         return notebooksMatches || noteMatches;
