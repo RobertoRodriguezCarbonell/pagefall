@@ -801,7 +801,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
   return (
     <div className="w-full max-w-7xl bg-card text-card-foreground rounded-lg border">
 
-      <div className="sticky top-0 z-20 flex items-center gap-1 p-2 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/50 border-b rounded-t-lg">
+      <div className="sticky top-0 z-[45] flex items-center gap-1 p-2 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/50 border-b rounded-t-lg">
         <Button
           variant="ghost"
           size="sm"
@@ -843,6 +843,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
               onClick={() =>
                 editor?.chain().focus().toggleHeading({ level: 1 }).run()
               }
+              onMouseDown={(e) => e.preventDefault()}
               className="text-popover-foreground hover:bg-accent hover:text-accent-foreground"
             >
               Heading 1
@@ -851,6 +852,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
               onClick={() =>
                 editor?.chain().focus().toggleHeading({ level: 2 }).run()
               }
+              onMouseDown={(e) => e.preventDefault()}
               className="text-popover-foreground hover:bg-accent hover:text-accent-foreground"
             >
               Heading 2
@@ -859,12 +861,14 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
               onClick={() =>
                 editor?.chain().focus().toggleHeading({ level: 3 }).run()
               }
+              onMouseDown={(e) => e.preventDefault()}
               className="text-popover-foreground hover:bg-accent hover:text-accent-foreground"
             >
               Heading 3
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => editor?.chain().focus().setParagraph().run()}
+              onMouseDown={(e) => e.preventDefault()}
               className="text-popover-foreground hover:bg-accent hover:text-accent-foreground"
             >
               Paragraph
