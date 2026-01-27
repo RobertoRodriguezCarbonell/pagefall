@@ -78,6 +78,7 @@ export default function NotePageClient({ note }: NotePageClientProps) {
                     position={selectionPopup.position}
                     onClose={handleClosePopup}
                     onApply={handleApplyToSelection}
+                    noteTitle={note?.title}
                 />
             )}
         </PageWrapper>

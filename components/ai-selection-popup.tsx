@@ -12,9 +12,10 @@ interface AISelectionPopupProps {
     position: { top: number; left: number; placement?: 'top' | 'bottom' };
     onClose: () => void;
     onApply: (newText: string) => void;
+    noteTitle?: string;
 }
 
-export function AISelectionPopup({ selectedText, position, onClose, onApply }: AISelectionPopupProps) {
+export function AISelectionPopup({ selectedText, position, onClose, onApply, noteTitle }: AISelectionPopupProps) {
     const [instruction, setInstruction] = useState("");
     const [comment, setComment] = useState("");
     const [isLoading, setIsLoading] = useState(false);
@@ -61,27 +62,30 @@ export function AISelectionPopup({ selectedText, position, onClose, onApply }: A
                 return;
             }
 
+            // Using structured JSON for agent-like behavior similar to main chat
             const systemPrompt = mode === "apply"
-                ? `You are an AI writing assistant. The user has selected this text:
+                ? `You are an AI writing assistant. The user is editing a note titled "${noteTitle || 'Untitled'}".
+The user has selected text in the editor.
 
-"${selectedText}"
+You must respond with a JSON object with this structure:
+{
+  "content": "<html content here>"
+}
 
-The user wants you to: ${textToProcess}
-
-Respond with ONLY the modified HTML content.
 RULES:
-1. Use semantic HTML tags (<p>, <ul>, <li>, <strong>, etc.).
-2. If the user input is a list, or the user asks for a list/bullets, YOU MUST return a <ul> or <ol> list with <li> items. Do NOT return a series of <p> tags for lists.
-3. Do NOT include any physical bullet characters (•, -, *) or numbering (1., 2.) inside the text content of <li> tags. The HTML tags handle the formatting automatically.
-4. Do not wrap code in markdown blocks (no \`\`\`html).
-5. Just return the raw HTML string.`
-                : `You are an AI assistant. The user has selected this text:
+- content should be the REPLACEMENT HTML for the selected text.
+- Use ONLY valid HTML tags: <p>, <h1>, <h2>, <h3>, <ul>, <ol>, <li>, <strong>, <em>, <code>, <blockquote>
+- Close all HTML tags properly.
+- IMPORTANT: Do not include ANY bullet characters (•, -, *) or numbering inside <li> tags. The HTML tags handle the list formatting.
+- Response must be ONLY the JSON object, nothing else.`
+                : `You are a helpful AI assistant. The user has selected text in a note titled "${noteTitle || 'Untitled'}".
+Provide a helpful, concise answer to their question. You can explain, analyze, or provide information about the selected text.`;
 
+            const userContent = `Selected Text:
 "${selectedText}"
 
-The user is asking: ${instruction}
-
-Provide a helpful, concise answer to their question. You can explain, analyze, or provide information about the selected text.`;
+Instruction:
+${textToProcess}`;
 
             const apiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
                 method: "POST",
@@ -93,7 +97,7 @@ Provide a helpful, concise answer to their question. You can explain, analyze, o
                     model: "gpt-4o-mini",
                     messages: [
                         { role: "system", content: systemPrompt },
-                        { role: "user", content: instruction },
+                        { role: "user", content: userContent },
                     ],
                     temperature: 0.7,
                     max_tokens: 1000,
@@ -107,18 +111,37 @@ Provide a helpful, concise answer to their question. You can explain, analyze, o
             }
 
             const data = await apiResponse.json();
-            const result = data.choices[0]?.message?.content || "";
+            const rawContent = data.choices[0]?.message?.content || "";
 
-            if (result) {
-                if (mode === "apply") {
-                    onApply(result);
+            if (rawContent && mode === "apply") {
+                try {
+                    // Clean potential markdown code blocks
+                    let cleanedContent = rawContent.trim();
+                    cleanedContent = cleanedContent.replace(/^```json?\n?/i, '').replace(/\n?```$/i, '');
+                    
+                    const parsed = JSON.parse(cleanedContent);
+                    if (parsed.content) {
+                        onApply(parsed.content);
+                        toast.success("Text updated");
+                        onClose();
+                    } else {
+                        // Fallback in case JSON structure is wrong but content exists
+                        onApply(cleanedContent);
+                        toast.success("Text updated (fallback)");
+                        onClose();
+                    }
+                } catch (e) {
+                    // Fallback for plain text response
+                    console.log("JSON parse failed, using raw content");
+                    onApply(rawContent.replace(/^```html?\n?/i, '').replace(/\n?```$/i, ''));
                     toast.success("Text updated");
                     onClose();
-                } else {
-                    setResponse(result);
-                    toast.success("Response received");
                 }
+            } else if (rawContent) {
+                 setResponse(rawContent);
+                 toast.success("Response received");
             }
+
         } catch (error) {
             console.error("AI Selection Error:", error);
             toast.error("An error occurred");
