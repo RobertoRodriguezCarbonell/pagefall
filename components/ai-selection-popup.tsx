@@ -25,9 +25,10 @@ interface AISelectionPopupProps {
     noteTitle?: string;
     noteId?: string;
     selectionRange?: { from: number; to: number };
+    onCommentCreated?: (commentId: string) => void;
 }
 
-export function AISelectionPopup({ selectedText, position, onClose, onApply, onToggleStyle, activeStyles, noteTitle, noteId, selectionRange }: AISelectionPopupProps) {
+export function AISelectionPopup({ selectedText, position, onClose, onApply, onToggleStyle, activeStyles, noteTitle, noteId, selectionRange, onCommentCreated }: AISelectionPopupProps) {
     const [instruction, setInstruction] = useState("");
     const [comment, setComment] = useState("");
     const [isLoading, setIsLoading] = useState(false);
@@ -72,6 +73,10 @@ export function AISelectionPopup({ selectedText, position, onClose, onApply, onT
             if (result.success) {
                 toast.success("Comment added successfully");
                 setComment("");
+                // Trigger callback to apply comment mark in editor
+                if (onCommentCreated && result.comment?.id) {
+                    onCommentCreated(result.comment.id);
+                }
                 onClose();
             } else {
                 toast.error(result.error || "Failed to add comment");

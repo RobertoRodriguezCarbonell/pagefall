@@ -76,7 +76,8 @@ interface RichTextEditorProps {
     getHTMLFn: () => string, 
     replaceSelectionFn: (text: string) => void, 
     manualReplaceFn: (text: string) => void,
-    toggleStyleFn: (style: string) => void
+    toggleStyleFn: (style: string) => void,
+    setCommentMarkFn: (commentId: string, from: number, to: number) => void
   ) => void;
   onTextSelection?: (text: string, position: { top: number; left: number; placement?: 'top' | 'bottom' }, activeStyles?: Record<string, boolean>, noteId?: string, selectionRange?: { from: number; to: number }) => void;
 }
@@ -459,66 +460,31 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
           } catch (e) { return 0; }
       }
       
-      onEditorReady(insertContent, replaceContent, getHTML, replaceSelection, manualReplaceSelection, toggleStyle);
+      const setCommentMark = (commentId: string, from: number, to: number) => {
+        console.log("📝 Editor setCommentMark called:", { commentId, from, to });
+        editor.chain()
+          .setTextSelection({ from, to })
+          .setCommentMark(commentId)
+          .run();
+      };
+      
+      onEditorReady(insertContent, replaceContent, getHTML, replaceSelection, manualReplaceSelection, toggleStyle, setCommentMark);
     }
   }, [editor, onEditorReady]);
 
-  // Highlight comments when showComments is toggled
+  // Toggle comment visibility by updating CSS class on editor container
   useEffect(() => {
     if (!editor) return;
-
-    if (showComments && comments.length > 0) {
-      // Remove any existing marks first
-      editor.chain().selectAll().unsetCommentMark().run();
-      
-      // Apply comment marks using stored positions
-      comments.forEach(comment => {
-        // If we have exact positions, use them
-        if (comment.selectionStart && comment.selectionEnd) {
-          const from = parseInt(comment.selectionStart);
-          const to = parseInt(comment.selectionEnd);
-          
-          // Validate positions are within document bounds
-          if (from >= 0 && to <= editor.state.doc.content.size && from < to) {
-            editor.chain()
-              .setTextSelection({ from, to })
-              .setCommentMark(comment.id)
-              .run();
-          }
-        } else if (comment.selectionText) {
-          // Fallback to text search for older comments without positions
-          const searchText = comment.selectionText.trim();
-          if (!searchText) return;
-          
-          let foundFirst = false;
-          
-          editor.state.doc.descendants((node, pos) => {
-            if (foundFirst) return false;
-            
-            if (node.isText && node.text) {
-              const text = node.text;
-              const index = text.indexOf(searchText);
-              
-              if (index !== -1) {
-                const from = pos + index;
-                const to = from + searchText.length;
-                
-                editor.chain()
-                  .setTextSelection({ from, to })
-                  .setCommentMark(comment.id)
-                  .run();
-                
-                foundFirst = true;
-              }
-            }
-          });
-        }
-      });
-    } else {
-      // Remove all comment marks
-      editor.chain().selectAll().unsetCommentMark().run();
+    
+    const editorElement = editor.view.dom.closest('.tiptap-editor-container');
+    if (editorElement) {
+      if (showComments) {
+        editorElement.classList.add('show-comments');
+      } else {
+        editorElement.classList.remove('show-comments');
+      }
     }
-  }, [editor, comments, showComments]);
+  }, [editor, showComments]);
 
   // Function to replace selected text (kept for internal use if needed)
   const replaceSelectedText = (newText: string) => {
@@ -862,7 +828,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
   };
 
   return (
-    <div className={cn("w-full max-w-7xl bg-card text-card-foreground rounded-lg border", className)}>
+    <div className={cn("w-full max-w-7xl bg-card text-card-foreground rounded-lg border tiptap-editor-container", className)}>
 
       <div className="sticky top-0 z-[45] flex items-center gap-1 p-2 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/50 border-b rounded-t-lg">
         <Button

@@ -30,6 +30,7 @@ export default function NotePageClient({ note }: NotePageClientProps) {
     const [replaceSelectionFn, setReplaceSelectionFn] = useState<((text: string) => void) | null>(null);
     const [manualReplaceFn, setManualReplaceFn] = useState<((text: string) => void) | null>(null);
     const [toggleStyleFn, setToggleStyleFn] = useState<((style: string) => void) | null>(null);
+    const [setCommentMarkFn, setSetCommentMarkFn] = useState<((commentId: string, from: number, to: number) => void) | null>(null);
     
     // Comments state
     const [comments, setComments] = useState<any[]>([]);
@@ -50,7 +51,8 @@ export default function NotePageClient({ note }: NotePageClientProps) {
         getHTMLFn: () => string, 
         replaceSelectionFn: (text: string) => void, 
         manualReplaceFn: (text: string) => void,
-        toggleStyleFn: (style: string) => void
+        toggleStyleFn: (style: string) => void,
+        setCommentMarkFn: (commentId: string, from: number, to: number) => void
     ) => {
         setInsertContentFn(() => insertFn);
         setReplaceContentFn(() => replaceFn);
@@ -58,6 +60,7 @@ export default function NotePageClient({ note }: NotePageClientProps) {
         setReplaceSelectionFn(() => replaceSelectionFn);
         setManualReplaceFn(() => manualReplaceFn);
         setToggleStyleFn(() => toggleStyleFn);
+        setSetCommentMarkFn(() => setCommentMarkFn);
     }, []);
 
     const handleTextSelection = useCallback((text: string, position: { top: number; left: number; placement?: 'top' | 'bottom' }, activeStyles?: Record<string, boolean>, noteId?: string, selectionRange?: { from: number; to: number }) => {
@@ -101,6 +104,15 @@ export default function NotePageClient({ note }: NotePageClientProps) {
     const handleToggleComments = useCallback(() => {
         setShowComments(prev => !prev);
     }, []);
+
+    const handleCommentCreated = useCallback((commentId: string) => {
+        if (setCommentMarkFn && selectionPopup?.selectionRange) {
+            const { from, to } = selectionPopup.selectionRange;
+            setCommentMarkFn(commentId, from, to);
+            // Refresh comments list
+            fetchComments();
+        }
+    }, [setCommentMarkFn, selectionPopup, fetchComments]);
 
     return (
         <PageWrapper breadcrumbs={[
@@ -174,6 +186,7 @@ export default function NotePageClient({ note }: NotePageClientProps) {
                     noteTitle={note?.title}
                     noteId={selectionPopup.noteId}
                     selectionRange={selectionPopup.selectionRange}
+                    onCommentCreated={handleCommentCreated}
                 />
             )}
         </PageWrapper>

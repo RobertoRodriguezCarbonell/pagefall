@@ -188,3 +188,28 @@
 .dark .ai-suggestion:hover {
   background-color: rgba(34, 197, 94, 0.2);
 }
+
+/* Comment marks - always in document, but only visible when parent has show-comments class */
+.comment-highlight {
+  /* No styling by default - comments are invisible */
+}
+
+.show-comments .comment-highlight {
+  background-color: rgba(251, 191, 36, 0.3);
+  border-bottom: 2px solid rgb(251, 191, 36);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.show-comments .comment-highlight:hover {
+  background-color: rgba(251, 191, 36, 0.5);
+}
+
+.dark .show-comments .comment-highlight {
+  background-color: rgba(251, 191, 36, 0.25);
+  border-bottom-color: rgb(251, 191, 36);
+}
+
+.dark .show-comments .comment-highlight:hover {
+  background-color: rgba(251, 191, 36, 0.4);
+}
