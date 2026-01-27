@@ -11,7 +11,7 @@ import Document from "@tiptap/extension-document";
 import Paragraph from "@tiptap/extension-paragraph";
 import Text from "@tiptap/extension-text";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,12 +56,14 @@ interface RichTextEditorProps {
   content?: JSONContent[];
   noteId?: string;
   noteTitle?: string;
-  onEditorReady?: (insertFn: (text: string) => void, replaceFn: (text: string) => void, getHTMLFn: () => string) => void;
+  onEditorReady?: (insertFn: (text: string) => void, replaceFn: (text: string) => void, getHTMLFn: () => string, replaceSelectionFn: (text: string) => void) => void;
+  onTextSelection?: (text: string, position: { top: number; left: number }) => void;
 }
 
-const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady }: RichTextEditorProps) => {
+const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelection }: RichTextEditorProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [pdfFileName, setPdfFileName] = useState(noteTitle || 'note');
+  const editorRef = useRef<HTMLDivElement>(null);
 
   const editor = useEditor({
     extensions: [StarterKit, Document, Paragraph, Text],
@@ -77,6 +79,49 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady }: RichTextE
     },
     content,
   });
+
+  // Handle text selection on mouseup (when user finishes selecting)
+  useEffect(() => {
+    if (!editor || !onTextSelection || !editorRef.current) return;
+
+    const handleMouseUp = () => {
+      // Small delay to ensure selection is finalized
+      setTimeout(() => {
+        const { from, to } = editor.state.selection;
+        const selectedText = editor.state.doc.textBetween(from, to, ' ');
+        
+        if (selectedText.trim().length > 0) {
+          // Store selection range to restore it later
+          const selection = { from, to };
+          
+          // Get selection coordinates
+          const { view } = editor;
+          const start = view.coordsAtPos(from);
+          const end = view.coordsAtPos(to);
+          
+          // Position popup below the selection
+          const position = {
+            top: end.bottom + 8,
+            left: start.left,
+          };
+          
+          onTextSelection(selectedText, position);
+          
+          // Restore selection after popup opens to keep text highlighted
+          setTimeout(() => {
+            editor.commands.setTextSelection(selection);
+          }, 100);
+        }
+      }, 50);
+    };
+
+    const editorElement = editorRef.current;
+    editorElement.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      editorElement.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [editor, onTextSelection]);
 
   // Provide insert and replace functions to parent when editor is ready
   useEffect(() => {
@@ -95,9 +140,30 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady }: RichTextE
         console.log("📝 Editor getHTML called, returning:", html);
         return html;
       };
-      onEditorReady(insertContent, replaceContent, getHTML);
+      const replaceSelection = (text: string) => {
+        console.log("📝 Editor replaceSelection called with:", text);
+        const { from, to } = editor.state.selection;
+        editor.chain()
+          .focus()
+          .deleteRange({ from, to })
+          .insertContent(text)
+          .run();
+      };
+      onEditorReady(insertContent, replaceContent, getHTML, replaceSelection);
     }
   }, [editor, onEditorReady]);
+
+  // Function to replace selected text (kept for internal use if needed)
+  const replaceSelectedText = (newText: string) => {
+    if (!editor) return;
+    
+    const { from, to } = editor.state.selection;
+    editor.chain()
+      .focus()
+      .deleteRange({ from, to })
+      .insertContent(newText)
+      .run();
+  };
 
   const handleExportPDF = async (fileName: string) => {
     const editorElement = document.querySelector('.ProseMirror') as HTMLElement;
@@ -530,7 +596,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady }: RichTextE
         </Button>
       </div>
 
-      <div className="min-h-96 p-6 bg-card">
+      <div ref={editorRef} className="min-h-96 p-6 bg-card">
         <EditorContent
           editor={editor}
           className="prose prose-neutral dark:prose-invert max-w-none focus:outline-none [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:min-h-96 [&_.ProseMirror_h1]:text-3xl [&_.ProseMirror_h1]:font-bold [&_.ProseMirror_h1]:mb-4 [&_.ProseMirror_h2]:text-2xl [&_.ProseMirror_h2]:font-bold [&_.ProseMirror_h2]:mb-3 [&_.ProseMirror_p]:mb-4 [&_.ProseMirror_blockquote]:border-l-4 [&_.ProseMirror_blockquote]:border-border [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:italic [&_.ProseMirror_pre]:bg-muted [&_.ProseMirror_pre]:p-4 [&_.ProseMirror_pre]:rounded [&_.ProseMirror_pre]:overflow-x-auto [&_.ProseMirror_code]:bg-muted [&_.ProseMirror_code]:px-1 [&_.ProseMirror_code]:rounded"
