@@ -146,16 +146,6 @@ export function CommentsPanel({ comments, onCommentUpdate, onCommentDeleted, sel
       {comments.map((comment) => {
         const isSelected = comment.id === selectedCommentId;
         
-        // Debug logging
-        if (selectedCommentId) {
-          console.log('Comparing:', {
-            commentId: comment.id,
-            selectedCommentId,
-            isSelected,
-            match: comment.id === selectedCommentId
-          });
-        }
-        
         return (
           <div
             key={comment.id}

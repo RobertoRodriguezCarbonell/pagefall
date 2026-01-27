@@ -213,7 +213,6 @@ ${textToProcess}`;
                     }
                 } catch (e) {
                     // Fallback for plain text response
-                    console.log("JSON parse failed, using raw content");
                     onApply(rawContent.replace(/^```html?\n?/i, '').replace(/\n?```$/i, ''));
                     toast.success("Text updated");
                     onClose();

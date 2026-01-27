@@ -125,7 +125,6 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
         
         saveTimeoutRef.current = setTimeout(() => {
           const content = editor.getJSON();
-          console.log('💾 Saving content to database:', JSON.stringify(content, null, 2));
           // Send as string to bypass potential server component serialization issues
           saveNoteContent(noteId, JSON.stringify(content));
         }, 500); // Wait 500ms before saving
@@ -141,7 +140,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
   // Log loaded content
   useEffect(() => {
     if (content) {
-      console.log('📥 Content loaded from database:', JSON.stringify(content, null, 2));
+
     }
   }, [content]);
 
@@ -286,7 +285,6 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
 
       const insertContent = (html: string) => {
         const cleanedHtml = cleanAIResponse(html);
-        console.log("📝 Editor insertContent called with:", cleanedHtml);
         
         // Get current position before inserting
         const currentPos = editor.state.selection.to;
@@ -316,7 +314,6 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
       
       const replaceContent = (html: string) => {
         const cleanedHtml = cleanAIResponse(html);
-        console.log("📝 Editor replaceContent called with:", cleanedHtml);
         
         // Save the entire original content before replacing
         const originalContent = editor.getHTML();
@@ -347,13 +344,11 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
       
       const getHTML = () => {
         const html = editor.getHTML();
-        console.log("📝 Editor getHTML called, returning:", html);
         return html;
       };
       
       const replaceSelection = (text: string) => {
         const cleanedText = cleanAIResponse(text);
-        console.log("📝 Editor replaceSelection called with:", cleanedText);
         const { from, to } = editor.state.selection;
         
         // Generate unique suggestion ID
@@ -390,14 +385,12 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
                const isParentEmpty = parent.content.size === 0;
 
                if (isParentEmpty && lis.length > 0) {
-                   console.log("📝 Merging first list item into current empty bullet...");
                    // Use innerHTML for the first item to fill the current empty <li>
                    const firstPart = lis[0].innerHTML;
                    // Use outerHTML for the rest to create new sibling <li>s
                    const secondPart = Array.from(lis).slice(1).map(li => li.outerHTML).join('');
                    contentToInsert = firstPart + secondPart;
                } else {
-                   console.log("📝 Detected insertion of List inside List. Stripping wrapper <ul>...");
                    // Standard strip: Extract all LI elements
                    contentToInsert = Array.from(lis).map(li => li.outerHTML).join('');
                }
@@ -452,7 +445,6 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
       }
 
       const toggleStyle = (style: string) => {
-        console.log("📝 Editor toggleStyle called with:", style);
         const chain = editor.chain().focus();
         
         switch (style) {
@@ -486,9 +478,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
           console.error('Invalid positions for comment mark:', { from, to, docSize });
           return;
         }
-        
-        console.log('✏️ Applying comment mark:', { commentId, from, to });
-        
+                
         editor.chain()
           .setTextSelection({ from, to })
           .setCommentMark(commentId)
@@ -497,12 +487,10 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
         // Force immediate save after applying mark
         setTimeout(() => {
           const json = editor.getJSON();
-          console.log('📄 Document JSON after applying mark:', JSON.stringify(json, null, 2));
           
           if (noteId) {
             // Send as string to bypass potential server component serialization issues
             saveNoteContent(noteId, JSON.stringify(json));
-            console.log('💾 Forced save after applying comment mark');
           }
         }, 100);
       };
@@ -571,7 +559,6 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
             const to = pos + node.nodeSize;
             transaction = transaction.removeMark(from, to, mark.type);
             hasChanges = true;
-            console.log('🧹 Removing invalid comment mark at:', { from, to, attrs: mark.attrs });
           }
         });
       }
@@ -579,7 +566,6 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
     
     if (hasChanges) {
       editor.view.dispatch(transaction);
-      console.log('✨ Cleaned up invalid comment marks');
       
       // Force save after cleanup
       setTimeout(() => {
@@ -587,7 +573,6 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
           const content = editor.getJSON();
           // Send as string to bypass potential server component serialization issues
           saveNoteContent(noteId, JSON.stringify(content));
-          console.log('💾 Saved cleaned content to database');
         }
       }, 100);
     }
@@ -601,16 +586,9 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
       const target = event.target as HTMLElement;
       const commentElement = target.closest('[data-comment-id]');
       
-      console.log('Click detected on editor:', {
-        target: target.tagName,
-        hasCommentId: !!commentElement,
-        commentId: commentElement?.getAttribute('data-comment-id')
-      });
-      
       if (commentElement) {
         const commentId = commentElement.getAttribute('data-comment-id');
         if (commentId) {
-          console.log('Calling onCommentClick with:', commentId);
           onCommentClick(commentId);
         }
       }

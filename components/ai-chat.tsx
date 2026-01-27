@@ -200,14 +200,7 @@ Use valid HTML tags: <p>, <h1>, <h2>, <h3>, <ul>, <ol>, <li>, <strong>, <em>. No
                     const action = response.action;
                     const htmlContent = response.content;
 
-                    console.log("🤖 AI Decision:", {
-                        action,
-                        contentPreview: htmlContent.substring(0, 100) + "...",
-                        userMessage: userMessage.content
-                    });
-
                     if (action === "replace" && onReplaceContent) {
-                        console.log("🔄 Replacing entire note");
                         onReplaceContent(htmlContent);
                         toast.success("Note updated with AI changes");
                         setMessages((prev) => [...prev, {
@@ -215,7 +208,6 @@ Use valid HTML tags: <p>, <h1>, <h2>, <h3>, <ul>, <ol>, <li>, <strong>, <em>. No
                             content: "✅ Note updated successfully"
                         }]);
                     } else if (action === "add" && onInsertContent) {
-                        console.log("➕ Adding new content");
                         onInsertContent(htmlContent);
                         toast.success("Content added to note");
                         setMessages((prev) => [...prev, {

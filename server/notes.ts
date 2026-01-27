@@ -32,7 +32,6 @@ export const updateNote = async (id: string, values: Partial<InsertNote>) => {
     try {
         // 🔍 Debug: Log what we're receiving from the client
         if (values.content) {
-            console.log('🔍 Server received content:', JSON.stringify(values.content, null, 2));
         }
         
         await db.update(notes).set(values).where(eq(notes.id, id));
@@ -45,7 +44,6 @@ export const updateNote = async (id: string, values: Partial<InsertNote>) => {
 
 export const saveNoteContent = async (id: string, contentJson: string) => {
     try {
-        console.log('🔍 saveNoteContent received string length:', contentJson.length);
         const content = JSON.parse(contentJson);
         
         await db.update(notes).set({ content }).where(eq(notes.id, id));
