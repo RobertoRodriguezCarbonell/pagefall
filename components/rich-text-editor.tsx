@@ -10,6 +10,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Document from "@tiptap/extension-document";
 import Paragraph from "@tiptap/extension-paragraph";
 import Text from "@tiptap/extension-text";
+import { AISuggestion } from "@/lib/tiptap-ai-suggestion";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useRef } from "react";
 import {
@@ -47,8 +48,10 @@ import {
   Superscript,
   Subscript,
   FileDown,
+  Sparkles,
 } from "lucide-react";
 import { updateNote } from "@/server/notes";
+import { toast } from "sonner";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas-pro";
 
@@ -63,10 +66,12 @@ interface RichTextEditorProps {
 const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelection }: RichTextEditorProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [pdfFileName, setPdfFileName] = useState(noteTitle || 'note');
+  const [hasSuggestions, setHasSuggestions] = useState(false);
+  const [suggestionHistory, setSuggestionHistory] = useState<Map<string, { originalText: string, from: number, to: number }>>(new Map());
   const editorRef = useRef<HTMLDivElement>(null);
 
   const editor = useEditor({
-    extensions: [StarterKit, Document, Paragraph, Text],
+    extensions: [StarterKit, Document, Paragraph, Text, AISuggestion],
     immediatelyRender: false,
     autofocus: true,
     editable: true,
@@ -76,6 +81,10 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
         const content = editor.getJSON();
         updateNote(noteId, { content });
       }
+      // Check if there are AI suggestions
+      const hasSuggestion = editor.state.doc.textContent.length > 0 && 
+        editor.isActive('aiSuggestion');
+      setHasSuggestions(hasSuggestion);
     },
     content,
   });
@@ -128,27 +137,102 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
     if (editor && onEditorReady) {
       const insertContent = (html: string) => {
         console.log("📝 Editor insertContent called with:", html);
+        
+        // Get current position before inserting
+        const currentPos = editor.state.selection.to;
+        
+        // Create a temporary div to measure the content length
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        const textLength = tempDiv.textContent?.length || 0;
+        
         editor.commands.focus('end');
         editor.commands.insertContent(html);
+        
+        // Calculate the new position after insertion
+        const newPos = editor.state.selection.to;
+        
+        // Mark only the inserted content as AI suggestion
+        if (newPos > currentPos) {
+          editor.chain()
+            .setTextSelection({ from: currentPos, to: newPos })
+            .setAISuggestion()
+            .setTextSelection(newPos)
+            .run();
+        }
+        
+        setHasSuggestions(true);
       };
+      
       const replaceContent = (html: string) => {
         console.log("📝 Editor replaceContent called with:", html);
+        
+        // Save the entire original content before replacing
+        const originalContent = editor.getHTML();
+        const suggestionId = `suggestion-${Date.now()}`;
+        
+        setSuggestionHistory(prev => {
+          const newMap = new Map(prev);
+          newMap.set(suggestionId, { 
+            originalText: originalContent, 
+            from: 0, 
+            to: editor.state.doc.content.size 
+          });
+          return newMap;
+        });
+        
+        // Replace all content
         editor.commands.setContent(html);
+        
+        // Mark ALL content as AI suggestion since we replaced everything
+        editor.chain()
+          .selectAll()
+          .setMark('aiSuggestion', { suggestionId })
+          .focus('end')
+          .run();
+        
+        setHasSuggestions(true);
       };
+      
       const getHTML = () => {
         const html = editor.getHTML();
         console.log("📝 Editor getHTML called, returning:", html);
         return html;
       };
+      
       const replaceSelection = (text: string) => {
         console.log("📝 Editor replaceSelection called with:", text);
         const { from, to } = editor.state.selection;
+        const originalText = editor.state.doc.textBetween(from, to, ' ');
+        
+        // Generate unique suggestion ID
+        const suggestionId = `suggestion-${Date.now()}`;
+        
+        // Save original text before replacing
+        setSuggestionHistory(prev => {
+          const newMap = new Map(prev);
+          newMap.set(suggestionId, { originalText, from, to });
+          return newMap;
+        });
+        
+        // Delete and insert new content
         editor.chain()
           .focus()
           .deleteRange({ from, to })
           .insertContent(text)
           .run();
+        
+        // Mark the newly inserted content
+        const newTo = from + text.length;
+        editor.chain()
+          .setTextSelection({ from, to: newTo })
+          .setMark('aiSuggestion', { suggestionId })
+          .focus()
+          .run();
+        
+        setHasSuggestions(true);
       };
+      
       onEditorReady(insertContent, replaceContent, getHTML, replaceSelection);
     }
   }, [editor, onEditorReady]);
@@ -363,8 +447,111 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
     return "H1";
   };
 
+  const handleAcceptSuggestions = () => {
+    if (!editor) return;
+    editor.chain().selectAll().acceptAISuggestion().run();
+    setHasSuggestions(false);
+    setSuggestionHistory(new Map());
+    toast.success("AI suggestions accepted");
+  };
+
+  const handleRejectSuggestions = () => {
+    if (!editor) return;
+    
+    // Check if we have a full document replacement to restore
+    const fullDocReplacement = Array.from(suggestionHistory.values()).find(
+      h => h.from === 0 && h.to === editor.state.doc.content.size
+    );
+    
+    if (fullDocReplacement && fullDocReplacement.originalText) {
+      // Restore the entire original document
+      editor.commands.setContent(fullDocReplacement.originalText);
+      setHasSuggestions(false);
+      setSuggestionHistory(new Map());
+      toast.success("AI suggestions rejected - original content restored");
+      return;
+    }
+    
+    // Otherwise, handle individual suggestions
+    const restorations: Array<{ from: number; to: number; text: string }> = [];
+    const deletions: Array<{ from: number; to: number }> = [];
+    
+    const { doc } = editor.state;
+    doc.descendants((node, pos) => {
+      node.marks.forEach(mark => {
+        if (mark.type.name === 'aiSuggestion') {
+          const suggestionId = mark.attrs.suggestionId;
+          if (suggestionId) {
+            const history = suggestionHistory.get(suggestionId);
+            if (history && history.originalText) {
+              // This was a replacement, restore original
+              restorations.push({
+                from: pos,
+                to: pos + node.nodeSize,
+                text: history.originalText
+              });
+              return;
+            }
+          }
+          // No original text, this was a new addition - mark for deletion
+          deletions.push({ from: pos, to: pos + node.nodeSize });
+        }
+      });
+    });
+    
+    // Apply changes
+    let tr = editor.state.tr;
+    
+    // Process in reverse order to maintain positions
+    [...restorations, ...deletions].sort((a, b) => b.from - a.from).forEach(item => {
+      if ('text' in item) {
+        // Restoration
+        tr.delete(item.from, item.to);
+        tr.insertText(item.text, item.from);
+      } else {
+        // Deletion
+        tr.delete(item.from, item.to);
+      }
+    });
+    
+    editor.view.dispatch(tr);
+    setHasSuggestions(false);
+    setSuggestionHistory(new Map());
+    toast.success("AI suggestions rejected");
+  };
+
   return (
     <div className="w-full max-w-7xl bg-card text-card-foreground rounded-lg overflow-hidden border">
+      {/* AI Suggestions Control Bar */}
+      {hasSuggestions && (
+        <div className="flex items-center justify-between px-4 py-2 bg-green-500/10 border-b border-green-500/20">
+          <div className="flex items-center gap-2">
+            <Sparkles className="size-4 text-green-600 dark:text-green-400" />
+            <span className="text-sm font-medium text-green-700 dark:text-green-300">
+              AI suggestions pending
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleRejectSuggestions}
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-800 dark:hover:bg-red-900/20"
+            >
+              ✗ Reject
+            </Button>
+            <Button
+              onClick={handleAcceptSuggestions}
+              variant="default"
+              size="sm"
+              className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white"
+            >
+              ✓ Accept
+            </Button>
+          </div>
+        </div>
+      )}
+      
       <div className="flex items-center gap-1 p-2 bg-muted/50 border-b">
         <Button
           variant="ghost"
