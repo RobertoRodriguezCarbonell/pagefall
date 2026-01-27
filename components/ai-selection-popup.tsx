@@ -25,8 +25,16 @@ export function AISelectionPopup({ selectedText, position, onClose, onApply }: A
         inputRef.current?.focus();
     }, []);
 
-    const handleAIRequest = async (mode: "apply" | "ask") => {
-        if (!instruction.trim()) return;
+    const quickActions = [
+        { label: "Fix Grammar", prompt: "Fix grammar and spelling errors" },
+        { label: "Shorten", prompt: "Make this text more concise" },
+        { label: "Make Professional", prompt: "Rewrite in a professional tone" },
+        { label: "Translate to English", prompt: "Translate this text to English" },
+    ];
+
+    const handleAIRequest = async (mode: "apply" | "ask", customPrompt?: string) => {
+        const textToProcess = customPrompt || instruction;
+        if (!textToProcess.trim()) return;
 
         setIsLoading(true);
         setResponse(null);
@@ -45,7 +53,7 @@ export function AISelectionPopup({ selectedText, position, onClose, onApply }: A
 
 "${selectedText}"
 
-The user wants you to: ${instruction}
+The user wants you to: ${textToProcess}
 
 Respond with ONLY the modified text, nothing else. No explanations, no markdown, just the result text.`
                 : `You are an AI assistant. The user has selected this text:
@@ -149,6 +157,20 @@ Provide a helpful, concise answer to their question. You can explain, analyze, o
                             className="flex-1 h-9 text-sm"
                         />
                     </div>
+                    
+                    {!response && !isLoading && (
+                        <div className="flex flex-wrap gap-1.5 mb-3">
+                            {quickActions.map((action) => (
+                                <button
+                                    key={action.label}
+                                    onClick={() => handleAIRequest("apply", action.prompt)}
+                                    className="text-[10px] px-2 py-1 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground border transition-colors cursor-pointer"
+                                >
+                                    {action.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                     
                     <div className="flex gap-2">
                         <Button

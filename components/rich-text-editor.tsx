@@ -463,55 +463,82 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
       h => h.from === 0 && h.to === editor.state.doc.content.size
     );
     
+    // Safety check for full doc replacement - only if the suggestion actually covers the whole doc now
+    // This prevents accidental full reverts if constraints aren't met
     if (fullDocReplacement && fullDocReplacement.originalText) {
-      // Restore the entire original document
-      editor.commands.setContent(fullDocReplacement.originalText);
-      setHasSuggestions(false);
-      setSuggestionHistory(new Map());
-      toast.success("AI suggestions rejected - original content restored");
-      return;
+         editor.commands.setContent(fullDocReplacement.originalText);
+         setHasSuggestions(false);
+         setSuggestionHistory(new Map());
+         toast.success("AI suggestions rejected - original content restored");
+         return;
     }
     
-    // Otherwise, handle individual suggestions
-    const restorations: Array<{ from: number; to: number; text: string }> = [];
-    const deletions: Array<{ from: number; to: number }> = [];
+    // Group replacements by ID, keep additions individual
+    const replacementRanges = new Map<string, { from: number; to: number }>();
+    const individualDeletions: Array<{ from: number; to: number }> = [];
     
     const { doc } = editor.state;
     doc.descendants((node, pos) => {
       node.marks.forEach(mark => {
         if (mark.type.name === 'aiSuggestion') {
           const suggestionId = mark.attrs.suggestionId;
-          if (suggestionId) {
-            const history = suggestionHistory.get(suggestionId);
-            if (history && history.originalText) {
-              // This was a replacement, restore original
-              restorations.push({
-                from: pos,
-                to: pos + node.nodeSize,
-                text: history.originalText
-              });
-              return;
-            }
+          const end = pos + node.nodeSize;
+          
+          const history = suggestionId ? suggestionHistory.get(suggestionId) : undefined;
+          
+          if (history && history.originalText !== undefined) {
+             // This is a replacement - we MUST merge the range to restore one single block
+             const current = replacementRanges.get(suggestionId);
+             if (current) {
+               replacementRanges.set(suggestionId, {
+                 from: Math.min(current.from, pos),
+                 to: Math.max(current.to, end)
+               });
+             } else {
+               replacementRanges.set(suggestionId, { from: pos, to: end });
+             }
+          } else {
+             // This is an addition (or unknown) - delete ONLY the marked content
+             // Do NOT merge ranges to avoid deleting user content in between
+             individualDeletions.push({ from: pos, to: end });
           }
-          // No original text, this was a new addition - mark for deletion
-          deletions.push({ from: pos, to: pos + node.nodeSize });
         }
       });
     });
-    
-    // Apply changes
+
     let tr = editor.state.tr;
     
-    // Process in reverse order to maintain positions
-    [...restorations, ...deletions].sort((a, b) => b.from - a.from).forEach(item => {
-      if ('text' in item) {
-        // Restoration
-        tr.delete(item.from, item.to);
-        tr.insertText(item.text, item.from);
-      } else {
-        // Deletion
-        tr.delete(item.from, item.to);
-      }
+    // 1. Queue Replacements (Restore original text)
+    const ops: Array<{ from: number; to: number; text?: string; type: 'restore' | 'delete' }> = [];
+    
+    replacementRanges.forEach((range, id) => {
+        const history = suggestionHistory.get(id);
+        if (history && history.originalText !== undefined) {
+            ops.push({
+                from: range.from,
+                to: range.to,
+                text: history.originalText,
+                type: 'restore'
+            });
+        }
+    });
+
+    // 2. Queue Additions (Delete)
+    individualDeletions.forEach(del => {
+        ops.push({
+            from: del.from,
+            to: del.to,
+            type: 'delete'
+        });
+    });
+
+    // Sort reverse to apply safely
+    ops.sort((a, b) => b.from - a.from).forEach(op => {
+        if (op.type === 'restore' && op.text !== undefined) {
+            tr.replaceWith(op.from, op.to, editor.state.schema.text(op.text));
+        } else {
+            tr.delete(op.from, op.to);
+        }
     });
     
     editor.view.dispatch(tr);
