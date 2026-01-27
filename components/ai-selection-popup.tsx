@@ -247,13 +247,12 @@ ${textToProcess}`;
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                              <button
-                                className="flex items-center gap-2 px-3 py-1.5 hover:bg-accent rounded-full transition-colors text-muted-foreground hover:text-foreground"
-                            >
+                                className="flex items-center gap-2 px-3 py-1.5 hover:bg-accent rounded-full transition-colors text-muted-foreground hover:text-foreground"                                onMouseDown={(e) => e.preventDefault()}                            >
                                 <Type className="size-3.5" />
                                 <span className="text-xs font-medium">Style</span>
                             </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="center" side="top" className="w-48 max-h-64 overflow-y-auto">
+                        <DropdownMenuContent align="center" side="top" className="w-48 max-h-64 overflow-y-auto" onCloseAutoFocus={(e) => e.preventDefault()}>
                             <DropdownMenuItem onSelect={() => handleStyleApply('p')} className="text-xs justify-between">
                                 <span className="flex items-center"><Pilcrow className="mr-2 size-3.5" /> Text</span>
                                 {activeStyles?.p && <Check className="size-3.5" />}

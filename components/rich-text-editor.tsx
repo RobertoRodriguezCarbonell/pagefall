@@ -806,6 +806,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
           variant="ghost"
           size="sm"
           onClick={() => editor?.chain().focus().undo().run()}
+          onMouseDown={(e) => e.preventDefault()}
           disabled={!editorState?.canUndo}
           className="size-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent"
         >
@@ -815,6 +816,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
           variant="ghost"
           size="sm"
           onClick={() => editor?.chain().focus().redo().run()}
+          onMouseDown={(e) => e.preventDefault()}
           disabled={!editorState?.canRedo}
           className="size-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent"
         >
@@ -830,12 +832,13 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
               size="sm"
               className="h-8 px-2 text-muted-foreground hover:text-foreground hover:bg-accent gap-1"
               suppressHydrationWarning
+              onMouseDown={(e) => e.preventDefault()}
             >
               {getActiveHeading()}
               <ChevronDown className="h-3 w-3" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="bg-popover border">
+          <DropdownMenuContent className="bg-popover border" onCloseAutoFocus={(e) => e.preventDefault()}>
             <DropdownMenuItem
               onClick={() =>
                 editor?.chain().focus().toggleHeading({ level: 1 }).run()
@@ -873,6 +876,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
           variant="ghost"
           size="sm"
           onClick={() => editor?.chain().focus().toggleBulletList().run()}
+          onMouseDown={(e) => e.preventDefault()}
           className={`size-8 p-0 hover:bg-accent ${
             editorState?.isBulletList
               ? "bg-accent text-accent-foreground"
@@ -885,6 +889,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
           variant="ghost"
           size="sm"
           onClick={() => editor?.chain().focus().toggleOrderedList().run()}
+          onMouseDown={(e) => e.preventDefault()}
           className={`size-8 p-0 hover:bg-accent ${
             editorState?.isOrderedList
               ? "bg-accent text-accent-foreground"
@@ -901,6 +906,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
           size="sm"
           onClick={() => editor?.chain().focus().toggleBold().run()}
           disabled={!editorState?.canBold}
+          onMouseDown={(e) => e.preventDefault()}
           className={`size-8 p-0 hover:bg-accent ${
             editorState?.isBold
               ? "bg-accent text-accent-foreground"
@@ -914,6 +920,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
           size="sm"
           onClick={() => editor?.chain().focus().toggleItalic().run()}
           disabled={!editorState?.canItalic}
+          onMouseDown={(e) => e.preventDefault()}
           className={`size-8 p-0 hover:bg-accent ${
             editorState?.isItalic
               ? "bg-accent text-accent-foreground"
@@ -927,6 +934,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
           size="sm"
           onClick={() => editor?.chain().focus().toggleStrike().run()}
           disabled={!editorState?.canStrike}
+          onMouseDown={(e) => e.preventDefault()}
           className={`size-8 p-0 hover:bg-accent ${
             editorState?.isStrike
               ? "bg-accent text-accent-foreground"
@@ -940,6 +948,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
           size="sm"
           onClick={() => editor?.chain().focus().toggleCode().run()}
           disabled={!editorState?.canCode}
+          onMouseDown={(e) => e.preventDefault()}
           className={`size-8 p-0 hover:bg-accent ${
             editorState?.isCode
               ? "bg-accent text-accent-foreground"
@@ -953,6 +962,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
           size="sm"
           onClick={() => editor?.chain().focus().toggleUnderline().run()}
           disabled={!editorState?.canUnderline}
+          onMouseDown={(e) => e.preventDefault()}
           className={`size-8 p-0 hover:bg-accent ${
             editorState?.isUnderline
               ? "bg-accent text-accent-foreground"
@@ -968,6 +978,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
           variant="ghost"
           size="sm"
           onClick={setLink}
+          onMouseDown={(e) => e.preventDefault()}
           className={`size-8 p-0 hover:bg-accent ${
             editorState?.isLink
               ? "bg-accent text-accent-foreground"
@@ -981,6 +992,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
           size="sm"
           onClick={() => editor?.chain().focus().toggleSuperscript().run()}
           disabled={!editorState?.canSuperscript}
+          onMouseDown={(e) => e.preventDefault()}
           className={`size-8 p-0 hover:bg-accent ${
             editorState?.isSuperscript
               ? "bg-accent text-accent-foreground"
@@ -994,6 +1006,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
           size="sm"
           onClick={() => editor?.chain().focus().toggleSubscript().run()}
           disabled={!editorState?.canSubscript}
+          onMouseDown={(e) => e.preventDefault()}
           className={`size-8 p-0 hover:bg-accent ${
             editorState?.isSubscript
               ? "bg-accent text-accent-foreground"
@@ -1009,6 +1022,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
           variant="ghost"
           size="sm"
           onClick={() => editor?.chain().focus().setTextAlign('left').run()}
+          onMouseDown={(e) => e.preventDefault()}
           className={`size-8 p-0 hover:bg-accent ${
             editorState?.isAlignLeft
               ? "bg-accent text-accent-foreground"
@@ -1021,6 +1035,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
           variant="ghost"
           size="sm"
           onClick={() => editor?.chain().focus().setTextAlign('center').run()}
+          onMouseDown={(e) => e.preventDefault()}
           className={`size-8 p-0 hover:bg-accent ${
             editorState?.isAlignCenter
               ? "bg-accent text-accent-foreground"
@@ -1033,6 +1048,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
           variant="ghost"
           size="sm"
           onClick={() => editor?.chain().focus().setTextAlign('right').run()}
+          onMouseDown={(e) => e.preventDefault()}
           className={`size-8 p-0 hover:bg-accent ${
             editorState?.isAlignRight
               ? "bg-accent text-accent-foreground"
@@ -1045,6 +1061,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
           variant="ghost"
           size="sm"
           onClick={() => editor?.chain().focus().setTextAlign('justify').run()}
+          onMouseDown={(e) => e.preventDefault()}
           className={`size-8 p-0 hover:bg-accent ${
             editorState?.isAlignJustify
               ? "bg-accent text-accent-foreground"
@@ -1060,6 +1077,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
           variant="ghost"
           size="sm"
           onClick={handleOpenDialog}
+          onMouseDown={(e) => e.preventDefault()}
           className="h-8 px-2 text-muted-foreground hover:text-foreground hover:bg-accent gap-1"
         >
           <FileDown className="h-4 w-4" />
@@ -1069,6 +1087,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
         <Button
           variant="ghost"
           size="sm"
+          onMouseDown={(e) => e.preventDefault()}
           className="h-8 px-2 text-muted-foreground hover:text-foreground hover:bg-accent gap-1"
         >
           <Plus className="h-4 w-4" />
