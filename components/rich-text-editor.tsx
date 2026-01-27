@@ -10,6 +10,11 @@ import StarterKit from "@tiptap/starter-kit";
 import Document from "@tiptap/extension-document";
 import Paragraph from "@tiptap/extension-paragraph";
 import Text from "@tiptap/extension-text";
+import UnderlineExtension from "@tiptap/extension-underline";
+import LinkExtension from "@tiptap/extension-link";
+import TextAlign from "@tiptap/extension-text-align";
+import SubscriptExtension from "@tiptap/extension-subscript";
+import SuperscriptExtension from "@tiptap/extension-superscript";
 import { DOMParser } from "@tiptap/pm/model";
 import { AISuggestion } from "@/lib/tiptap-ai-suggestion";
 import { Button } from "@/components/ui/button";
@@ -72,7 +77,24 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
   const editorRef = useRef<HTMLDivElement>(null);
 
   const editor = useEditor({
-    extensions: [StarterKit, Document, Paragraph, Text, AISuggestion],
+    extensions: [
+      StarterKit,
+      Document,
+      Paragraph,
+      Text,
+      AISuggestion,
+      UnderlineExtension,
+      LinkExtension.configure({
+        openOnClick: false,
+        autolink: true,
+        defaultProtocol: 'https',
+      }),
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+      }),
+      SubscriptExtension,
+      SuperscriptExtension,
+    ],
     immediatelyRender: false,
     autofocus: true,
     editable: true,
@@ -409,9 +431,19 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
     }
   };
 
-  const handleOpenDialog = () => {
-    setPdfFileName(noteTitle || 'note');
-    setIsDialogOpen(true);
+  const setLink = () => {
+    if (!editor) return;
+    const previousUrl = editor.getAttributes('link').href;
+    const url = window.prompt('URL', previousUrl);
+
+    if (url === null) return;
+
+    if (url === '') {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+      return;
+    }
+
+    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
   };
 
   const editorState = useEditorState({
@@ -435,6 +467,18 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
         isOrderedList: ctx.editor?.isActive("orderedList"),
         isCodeBlock: ctx.editor?.isActive("codeBlock"),
         isBlockquote: ctx.editor?.isActive("blockquote"),
+        isUnderline: ctx.editor?.isActive("underline"),
+        canUnderline: ctx.editor?.can().chain().focus().toggleUnderline().run(),
+        isLink: ctx.editor?.isActive("link"),
+        canLink: ctx.editor?.can().chain().focus().setLink({ href: '' }).run(),
+        isSuperscript: ctx.editor?.isActive("superscript"),
+        canSuperscript: ctx.editor?.can().chain().focus().toggleSuperscript().run(),
+        isSubscript: ctx.editor?.isActive("subscript"),
+        canSubscript: ctx.editor?.can().chain().focus().toggleSubscript().run(),
+        isAlignLeft: ctx.editor?.isActive({ textAlign: 'left' }),
+        isAlignCenter: ctx.editor?.isActive({ textAlign: 'center' }),
+        isAlignRight: ctx.editor?.isActive({ textAlign: 'right' }),
+        isAlignJustify: ctx.editor?.isActive({ textAlign: 'justify' }),
         canUndo: ctx.editor?.can().chain().focus().undo().run(),
         canRedo: ctx.editor?.can().chain().focus().redo().run(),
       };
@@ -550,6 +594,11 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
     setHasSuggestions(false);
     setSuggestionHistory(new Map());
     toast.success("AI suggestions rejected");
+  };
+
+  const handleOpenDialog = () => {
+    setPdfFileName(noteTitle || 'note');
+    setIsDialogOpen(true);
   };
 
   return (
@@ -733,7 +782,13 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
         <Button
           variant="ghost"
           size="sm"
-          className="size-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent"
+          onClick={() => editor?.chain().focus().toggleUnderline().run()}
+          disabled={!editorState?.canUnderline}
+          className={`size-8 p-0 hover:bg-accent ${
+            editorState?.isUnderline
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
         >
           <Underline className="h-4 w-4" />
         </Button>
@@ -743,21 +798,38 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
         <Button
           variant="ghost"
           size="sm"
-          className="size-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent"
+          onClick={setLink}
+          className={`size-8 p-0 hover:bg-accent ${
+            editorState?.isLink
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
         >
           <Link className="h-4 w-4" />
         </Button>
         <Button
           variant="ghost"
           size="sm"
-          className="size-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent"
+          onClick={() => editor?.chain().focus().toggleSuperscript().run()}
+          disabled={!editorState?.canSuperscript}
+          className={`size-8 p-0 hover:bg-accent ${
+            editorState?.isSuperscript
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
         >
           <Superscript className="h-4 w-4" />
         </Button>
         <Button
           variant="ghost"
           size="sm"
-          className="size-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent"
+          onClick={() => editor?.chain().focus().toggleSubscript().run()}
+          disabled={!editorState?.canSubscript}
+          className={`size-8 p-0 hover:bg-accent ${
+            editorState?.isSubscript
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
         >
           <Subscript className="h-4 w-4" />
         </Button>
@@ -767,28 +839,48 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
         <Button
           variant="ghost"
           size="sm"
-          className="size-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent"
+          onClick={() => editor?.chain().focus().setTextAlign('left').run()}
+          className={`size-8 p-0 hover:bg-accent ${
+            editorState?.isAlignLeft
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
         >
           <AlignLeft className="h-4 w-4" />
         </Button>
         <Button
           variant="ghost"
           size="sm"
-          className="size-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent"
+          onClick={() => editor?.chain().focus().setTextAlign('center').run()}
+          className={`size-8 p-0 hover:bg-accent ${
+            editorState?.isAlignCenter
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
         >
           <AlignCenter className="h-4 w-4" />
         </Button>
         <Button
           variant="ghost"
           size="sm"
-          className="size-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent"
+          onClick={() => editor?.chain().focus().setTextAlign('right').run()}
+          className={`size-8 p-0 hover:bg-accent ${
+            editorState?.isAlignRight
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
         >
           <AlignRight className="h-4 w-4" />
         </Button>
         <Button
           variant="ghost"
           size="sm"
-          className="size-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent"
+          onClick={() => editor?.chain().focus().setTextAlign('justify').run()}
+          className={`size-8 p-0 hover:bg-accent ${
+            editorState?.isAlignJustify
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
         >
           <AlignJustify className="h-4 w-4" />
         </Button>
@@ -818,7 +910,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, onEditorReady, onTextSelec
       <div ref={editorRef} className="min-h-96 p-6 bg-card">
         <EditorContent
           editor={editor}
-          className="prose prose-neutral dark:prose-invert max-w-none focus:outline-none [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:min-h-96 [&_.ProseMirror_h1]:text-3xl [&_.ProseMirror_h1]:font-bold [&_.ProseMirror_h1]:mb-4 [&_.ProseMirror_h2]:text-2xl [&_.ProseMirror_h2]:font-bold [&_.ProseMirror_h2]:mb-3 [&_.ProseMirror_p]:mb-4 [&_.ProseMirror_blockquote]:border-l-4 [&_.ProseMirror_blockquote]:border-border [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:italic [&_.ProseMirror_pre]:bg-muted [&_.ProseMirror_pre]:p-4 [&_.ProseMirror_pre]:rounded [&_.ProseMirror_pre]:overflow-x-auto [&_.ProseMirror_code]:bg-muted [&_.ProseMirror_code]:px-1 [&_.ProseMirror_code]:rounded"
+          className="prose prose-neutral dark:prose-invert max-w-none focus:outline-none [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:min-h-96 [&_.ProseMirror_h1]:text-3xl [&_.ProseMirror_h1]:font-bold [&_.ProseMirror_h1]:mb-4 [&_.ProseMirror_h2]:text-2xl [&_.ProseMirror_h2]:font-bold [&_.ProseMirror_h2]:mb-3 [&_.ProseMirror_p]:mb-4 [&_.ProseMirror_blockquote]:border-l-4 [&_.ProseMirror_blockquote]:border-border [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:italic [&_.ProseMirror_pre]:bg-muted [&_.ProseMirror_pre]:p-4 [&_.ProseMirror_pre]:rounded [&_.ProseMirror_pre]:overflow-x-auto [&_.ProseMirror_code]:bg-muted [&_.ProseMirror_code]:px-1 [&_.ProseMirror_code]:rounded [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:marker:text-foreground"
         />
       </div>
 
