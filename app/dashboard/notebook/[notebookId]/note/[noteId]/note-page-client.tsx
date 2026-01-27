@@ -41,6 +41,16 @@ export default function NotePageClient({ note }: NotePageClientProps) {
     const [comments, setComments] = useState<any[]>([]);
     const [showComments, setShowComments] = useState(false);
     
+    // Load comments visibility state from localStorage after mount
+    useEffect(() => {
+        if (note?.id) {
+            const saved = localStorage.getItem(`note-comments-visible-${note.id}`);
+            if (saved === 'true') {
+                setShowComments(true);
+            }
+        }
+    }, [note?.id]);
+    
     // Selection popup state
     const [selectionPopup, setSelectionPopup] = useState<{
         text: string;
@@ -109,8 +119,15 @@ export default function NotePageClient({ note }: NotePageClientProps) {
     }, [fetchComments]);
 
     const handleToggleComments = useCallback(() => {
-        setShowComments(prev => !prev);
-    }, []);
+        setShowComments(prev => {
+            const newValue = !prev;
+            // Save to localStorage
+            if (typeof window !== 'undefined' && note?.id) {
+                localStorage.setItem(`note-comments-visible-${note.id}`, String(newValue));
+            }
+            return newValue;
+        });
+    }, [note?.id]);
 
     const handleCommentCreated = useCallback((commentId: string) => {
         if (setCommentMarkFn && selectionPopup?.selectionRange) {
