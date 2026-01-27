@@ -310,9 +310,9 @@ Use valid HTML tags: <p>, <h1>, <h2>, <h3>, <ul>, <ol>, <li>, <strong>, <em>. No
                 </div>
 
                 {/* Main Chat Area */}
-                <div className="flex-1 flex flex-col min-w-0 h-full bg-background/50">
+                <div className="flex-1 flex flex-col min-w-0 h-full">
                     {/* Header */}
-                    <div className="flex-shrink-0 flex items-center justify-between px-4 h-14 border-b bg-muted/5 backdrop-blur supports-[backdrop-filter]:bg-muted/5">
+                    <div className="flex-shrink-0 flex items-center justify-between px-4 h-14 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
                         <div className="flex items-center gap-2">
                             <Button 
                                 variant="ghost" 
@@ -332,6 +332,34 @@ Use valid HTML tags: <p>, <h1>, <h2>, <h3>, <ul>, <ol>, <li>, <strong>, <em>. No
                         </div>
 
                         <div className="flex items-center gap-1">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-muted-foreground hover:text-foreground">
+                                        <span className="text-xs font-medium">Model: GPT-5.2</span>
+                                        <MoreHorizontal className="size-3.5" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem>
+                                        <span>GPT-5.1</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem>
+                                        <span>GPT-5</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem>
+                                        <span>GPT-5 mini</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem>
+                                        <span>GPT-5 nano</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem>
+                                        <span>GPT-5.2-Codex</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem>
+                                        <span>GPT-5.1-Codex</span>
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-muted-foreground hover:text-foreground">
@@ -418,7 +446,7 @@ Use valid HTML tags: <p>, <h1>, <h2>, <h3>, <ul>, <ol>, <li>, <strong>, <em>. No
 
                     {/* Input Area */}
                     <div className="flex-shrink-0 p-4 bg-background">
-                        <div className="relative flex items-end gap-2 bg-muted/30 p-1.5 rounded-xl border focus-within:ring-1 focus-within:ring-ring focus-within:border-primary/50 transition-all">
+                        <div className="relative flex items-center gap-2 bg-muted/30 p-1.5 rounded-xl border focus-within:ring-1 focus-within:ring-ring focus-within:border-primary/50 transition-all">
                             <Input
                                 placeholder={agentMode ? "Tell me what to write..." : "Message AI..."}
                                 value={input}
@@ -431,7 +459,7 @@ Use valid HTML tags: <p>, <h1>, <h2>, <h3>, <ul>, <ol>, <li>, <strong>, <em>. No
                                 onClick={handleSend}
                                 disabled={isLoading || !input.trim()}
                                 size="icon"
-                                className="size-8 mb-1 mr-1 shrink-0 rounded-lg"
+                                className="size-8 mb-1 mr-1 shrink-0 rounded-lg flex items-center justify-center"
                             >
                                 <Send className="size-4" />
                             </Button>

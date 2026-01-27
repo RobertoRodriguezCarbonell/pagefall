@@ -102,7 +102,7 @@ export default function NotePageClient({ note }: NotePageClientProps) {
                     - On Mobile: Container is present but empty of flow content (since child is fixed).
                     - On Desktop: Container has width and holds the static sidebar.
                 */}
-                <div className="shrink-0 lg:w-[600px] xl:w-[700px] h-full rounded-lg border lg:border-border overflow-hidden transition-all duration-300 shadow-sm bg-background">
+                <div className="shrink-0 lg:w-[480px] xl:w-[600px] 2xl:w-[1000px] h-full rounded-lg border lg:border-border overflow-hidden transition-all duration-300 shadow-sm bg-background">
                     <AIChat 
                         noteTitle={note?.title}
                         onInsertContent={insertContentFn || undefined}

@@ -325,7 +325,7 @@ ${textToProcess}`;
             <>
                 <div className="fixed inset-0 z-40" onClick={onClose} />
                 <div
-                    className="fixed z-50 w-80 bg-background border rounded-lg shadow-xl animate-in fade-in zoom-in-95 duration-200"
+                    className="fixed z-50 w-100 bg-background border rounded-lg shadow-xl animate-in fade-in zoom-in-95 duration-200"
                     style={{
                         top: `${position.top}px`,
                         left: `${position.left}px`,
@@ -354,17 +354,14 @@ ${textToProcess}`;
                         
                         <div className="flex justify-end gap-2">
                             <Button 
-                                size="sm" 
-                                variant="ghost" 
+                                variant="outline" 
                                 onClick={() => setView('menu')}
-                                className="h-7 text-xs"
                             >
                                 Back
                             </Button>
                             <Button 
-                                size="sm" 
                                 onClick={handleCommentSubmit}
-                                className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                                className=""
                             >
                                 Save
                             </Button>
