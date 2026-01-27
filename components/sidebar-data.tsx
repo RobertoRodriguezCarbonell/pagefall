@@ -7,6 +7,7 @@ import { useQueryState } from 'nuqs';
 import { useTheme } from 'next-themes';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 interface SidebarDataProps {
     data: {
@@ -21,6 +22,7 @@ export function SidebarData({ data }: SidebarDataProps) {
     const [search] = useQueryState("search", { defaultValue: "" });
     const { theme } = useTheme();
     const [mounted, setMounted] = useState(false);
+    const pathname = usePathname();
 
     useEffect(() => {
         setMounted(true);
@@ -63,7 +65,7 @@ export function SidebarData({ data }: SidebarDataProps) {
                                 <SidebarMenu>
                                     {item.items.map((item) => (
                                         <SidebarMenuItem key={item.title}>
-                                            <SidebarMenuButton asChild isActive={item.isActive}>
+                                            <SidebarMenuButton asChild isActive={pathname === item.url}>
                                                 <a href={item.url}>
                                                     <File />
                                                     {item.title}

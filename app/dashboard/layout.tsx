@@ -1,5 +1,6 @@
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+import { CommandMenu } from "@/components/command-menu"
 
 export default function DashboardLayout({
     children,
@@ -12,6 +13,7 @@ export default function DashboardLayout({
             <main className="flex-1">
                 {children}
             </main>
+            <CommandMenu />
         </SidebarProvider>
     )
 }
