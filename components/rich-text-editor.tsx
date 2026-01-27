@@ -58,7 +58,7 @@ import {
   FileDown,
   Sparkles,
 } from "lucide-react";
-import { updateNote } from "@/server/notes";
+import { updateNote, saveNoteContent } from "@/server/notes";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas-pro";
@@ -126,7 +126,8 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
         saveTimeoutRef.current = setTimeout(() => {
           const content = editor.getJSON();
           console.log('💾 Saving content to database:', JSON.stringify(content, null, 2));
-          updateNote(noteId, { content });
+          // Send as string to bypass potential server component serialization issues
+          saveNoteContent(noteId, JSON.stringify(content));
         }, 500); // Wait 500ms before saving
       }
       // Check if there are AI suggestions
@@ -486,17 +487,23 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
           return;
         }
         
-        console.log('Applying comment mark:', { commentId, from, to });
+        console.log('✏️ Applying comment mark:', { commentId, from, to });
         
         editor.chain()
           .setTextSelection({ from, to })
           .setCommentMark(commentId)
           .run();
         
-        // Log the JSON after applying mark
+        // Force immediate save after applying mark
         setTimeout(() => {
           const json = editor.getJSON();
-          console.log('Document JSON after applying mark:', JSON.stringify(json, null, 2));
+          console.log('📄 Document JSON after applying mark:', JSON.stringify(json, null, 2));
+          
+          if (noteId) {
+            // Send as string to bypass potential server component serialization issues
+            saveNoteContent(noteId, JSON.stringify(json));
+            console.log('💾 Forced save after applying comment mark');
+          }
         }, 100);
       };
       
@@ -546,6 +553,45 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
       }
     }
   }, [editor, showComments]);
+
+  // Clean up marks without valid commentId on mount
+  useEffect(() => {
+    if (!editor) return;
+    
+    const { doc, tr } = editor.state;
+    let transaction = tr;
+    let hasChanges = false;
+    
+    doc.descendants((node, pos) => {
+      if (node.isText && node.marks) {
+        node.marks.forEach(mark => {
+          if (mark.type.name === 'commentMark' && 
+              (!mark.attrs.commentId || mark.attrs.commentId === 'null' || mark.attrs.commentId === 'missing-id')) {
+            const from = pos;
+            const to = pos + node.nodeSize;
+            transaction = transaction.removeMark(from, to, mark.type);
+            hasChanges = true;
+            console.log('🧹 Removing invalid comment mark at:', { from, to, attrs: mark.attrs });
+          }
+        });
+      }
+    });
+    
+    if (hasChanges) {
+      editor.view.dispatch(transaction);
+      console.log('✨ Cleaned up invalid comment marks');
+      
+      // Force save after cleanup
+      setTimeout(() => {
+        if (noteId) {
+          const content = editor.getJSON();
+          // Send as string to bypass potential server component serialization issues
+          saveNoteContent(noteId, JSON.stringify(content));
+          console.log('💾 Saved cleaned content to database');
+        }
+      }, 100);
+    }
+  }, [editor, noteId]);
 
   // Handle clicks on comment highlights
   useEffect(() => {

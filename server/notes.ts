@@ -30,10 +30,29 @@ export const getNoteById = async (id: string) => {
 
 export const updateNote = async (id: string, values: Partial<InsertNote>) => {
     try {
+        // 🔍 Debug: Log what we're receiving from the client
+        if (values.content) {
+            console.log('🔍 Server received content:', JSON.stringify(values.content, null, 2));
+        }
+        
         await db.update(notes).set(values).where(eq(notes.id, id));
         return { success: true, message: "Notebook updated successfully" };
-    } catch {
+    } catch (error) {
+        console.error('❌ Server error saving note:', error);
         return { success: false, message: "Failed to update notebook" };
+    }
+};
+
+export const saveNoteContent = async (id: string, contentJson: string) => {
+    try {
+        console.log('🔍 saveNoteContent received string length:', contentJson.length);
+        const content = JSON.parse(contentJson);
+        
+        await db.update(notes).set({ content }).where(eq(notes.id, id));
+        return { success: true, message: "Note content saved successfully" };
+    } catch (error) {
+        console.error('❌ Error in saveNoteContent:', error);
+        return { success: false, message: "Failed to save note content" };
     }
 };
 

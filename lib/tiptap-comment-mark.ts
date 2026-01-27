@@ -25,16 +25,22 @@ export const CommentMark = Mark.create<CommentMarkOptions>({
   addAttributes() {
     return {
       commentId: {
-        default: null,
-        parseHTML: element => element.getAttribute('data-comment-id'),
+        // Set a sentinel default value to ensure UUIDs are always serialized
+        // (TipTap omits attributes matching the default value in JSON)
+        default: 'missing-id',
+        parseHTML: element => {
+          const id = element.getAttribute('data-comment-id');
+          return id || 'missing-id';
+        },
         renderHTML: attributes => {
-          if (!attributes.commentId) {
+          if (!attributes.commentId || attributes.commentId === 'missing-id') {
             return {};
           }
           return {
             'data-comment-id': attributes.commentId,
           };
         },
+        keepOnSplit: false,
       },
     };
   },
@@ -43,6 +49,11 @@ export const CommentMark = Mark.create<CommentMarkOptions>({
     return [
       {
         tag: 'span[data-comment-id]',
+        getAttrs: element => {
+          const commentId = (element as HTMLElement).getAttribute('data-comment-id');
+          // Only parse if commentId exists and is not null
+          return commentId && commentId !== 'null' ? { commentId } : false;
+        },
       },
     ];
   },
