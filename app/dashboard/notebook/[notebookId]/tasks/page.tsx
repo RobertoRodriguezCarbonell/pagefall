@@ -17,6 +17,7 @@ interface Task {
     dueDate?: string;
     tag?: string;
     assignedTo?: string;
+    status: string;
 }
 
 interface Column {
@@ -34,23 +35,23 @@ export default async function TasksPage({ params }: { params: Params }) {
             id: "todo", 
             title: "To Do", 
             tasks: [
-                { id: "1", title: "Research competitors", description: "Analyze market and competitors lorem ipsum dolor sit amet consectetur adipiscing elit", priority: "high", dueDate: "2024-02-15", tag: "Strategy", assignedTo: "Alice" },
-                { id: "2", title: "Draft project proposal", description: "Create initial draft for project proposal", priority: "medium", tag: "Writing", assignedTo: "Bob" }
+                { id: "1", title: "Research competitors", description: "Analyze market and competitors lorem ipsum dolor sit amet consectetur adipiscing elit", priority: "high", dueDate: "2024-02-15", tag: "Strategy", assignedTo: "Alice", status: "todo" },
+                { id: "2", title: "Draft project proposal", description: "Create initial draft for project proposal", priority: "medium", tag: "Writing", assignedTo: "Bob", status: "todo" }
             ] 
         },
         { 
             id: "in-progress", 
             title: "In Progress", 
             tasks: [
-                { id: "3", title: "Design system architecture", description: "Create initial system design", priority: "high", dueDate: "2024-02-20", tag: "Design", assignedTo: "Charlie" }
+                { id: "3", title: "Design system architecture", description: "Create initial system design", priority: "high", dueDate: "2024-02-20", tag: "Design", assignedTo: "Charlie", status: "in-progress" }
             ] 
         },
         { 
             id: "done", 
             title: "Done", 
             tasks: [
-                { id: "4", title: "Setup Next.js project", description: "Initial project setup with Next.js", priority: "medium", dueDate: "2024-01-10", tag: "Dev", assignedTo: "Dave" },
-                { id: "5", title: "Configure database", description: "Set up and configure the database", priority: "low", tag: "Dev", assignedTo: "Eve" }
+                { id: "4", title: "Setup Next.js project", description: "Initial project setup with Next.js", priority: "medium", dueDate: "2024-01-10", tag: "Dev", assignedTo: "Dave", status: "done" },
+                { id: "5", title: "Configure database", description: "Set up and configure the database", priority: "low", tag: "Dev", assignedTo: "Eve", status: "done" }
             ] 
         },
     ];

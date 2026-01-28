@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { Badge, Calendar, Clock, MoreHorizontal, User } from "lucide-react";
+import { Clock, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +14,7 @@ interface TaskProps {
         dueDate?: string;
         tag?: string;
         assignedTo?: string;
+        status: string;
     }
 }
 
@@ -25,31 +26,29 @@ export function TaskCard({ task }: TaskProps) {
     };
 
     return (
-        <Card className="">
+        <Card className="rounded-md">
             <CardHeader className="">
                 <div className="flex justify-between items-start">
-                    <div className="flex flex-col gap-2">
+                    <div className="flex gap-2 items-center">
                         <h4 className="font-semibold text-sm leading-tight text-foreground/90 group-hover:text-primary transition-colors">
                             {task.title}
                         </h4>
-                        <div className="flex items-center justify-between">
                         <span className={cn(
                             "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full w-fit",
                             priorityColor[task.priority]
                         )}>
                             {task.priority}
                         </span>
-                        {task.tag && (
-                            <div className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80 w-fit">
-                                {task.tag}
-                            </div>
-                        )}
-                        </div>
                     </div>
                     <Button variant={"outline"} size="icon" className="h-6 w-6">
                         <MoreHorizontal />
                     </Button>
                 </div>
+                {task.tag && (
+                    <div className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80 w-fit">
+                        {task.tag}
+                    </div>
+                )}
             </CardHeader>
             <CardContent className="">
                 {task.description && (
@@ -58,7 +57,7 @@ export function TaskCard({ task }: TaskProps) {
                     </div>
                 )}
             </CardContent>
-            <CardFooter className="p-4 pt-0 flex items-center justify-between text-muted-foreground">
+            <CardFooter className="pt-0 flex items-center justify-between text-muted-foreground">
                 <div className="flex items-center gap-2 text-xs">
                     {task.dueDate && (
                         <div className="flex items-center gap-1">

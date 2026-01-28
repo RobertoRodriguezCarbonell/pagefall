@@ -25,13 +25,20 @@ import {
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useState } from "react";
-import { Loader2, Plus, Flag } from "lucide-react";
+import { Loader2, Plus, Flag, Calendar as CalendarIcon, Tag, Circle, Timer, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
 
 const formSchema = z.object({
   title: z.string().min(2).max(50),
+  description: z.string().optional(),
+  status: z.enum(["todo", "in-progress", "done"]),
   priority: z.enum(["low", "medium", "high"]),
-  dueDate: z.string().optional(),
+  dueDate: z.date().optional(),
+  tag: z.string().optional(),
 });
 
 export const CreateTaskButton = () => {
@@ -42,8 +49,10 @@ export const CreateTaskButton = () => {
     resolver: zodResolver(formSchema),
     defaultValues: {
       title: "",
+      description: "",
+      status: "todo",
       priority: "medium",
-      dueDate: ""
+      tag: "",
     },
   });
 
@@ -87,9 +96,55 @@ export const CreateTaskButton = () => {
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Task Title</FormLabel>
+                  <FormLabel>Title</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter task title" {...field} />
+                    <Input placeholder="Task title" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Add a description..." className="resize-none" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
+                  <FormControl>
+                     <div className="flex gap-2">
+                        {["todo", "in-progress", "done"].map((status) => (
+                            <div 
+                                key={status}
+                                className={cn(
+                                    "cursor-pointer px-4 py-2 rounded-md border text-sm font-medium transition-all capitalize flex items-center gap-2",
+                                    field.value === status 
+                                        ? "bg-primary text-primary-foreground border-primary" 
+                                        : "bg-background hover:bg-muted text-muted-foreground border-input"
+                                )}
+                                onClick={() => field.onChange(status)}
+                            >
+                                {status === "todo" && <Circle className="h-3 w-3" />}
+                                {status === "in-progress" && <Timer className="h-3 w-3" />}
+                                {status === "done" && <CheckCircle className="h-3 w-3" />}
+                                {status === "in-progress" ? "In Progress" : status}
+                            </div>
+                        ))}
+                     </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -131,19 +186,66 @@ export const CreateTaskButton = () => {
               )}
             />
 
-             <FormField
-              control={form.control}
-              name="dueDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Due Date (Optional)</FormLabel>
-                   <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="flex gap-4">
+                <FormField
+                control={form.control}
+                name="dueDate"
+                render={({ field }) => (
+                    <FormItem className="flex-1 flex flex-col">
+                    <FormLabel>Due Date</FormLabel>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <FormControl>
+                                <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                        "w-full pl-3 text-left font-normal",
+                                        !field.value && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
+                                    {field.value ? (
+                                        format(field.value, "PPP")
+                                    ) : (
+                                        <span>Pick a date</span>
+                                    )}
+                                </Button>
+                            </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={field.onChange}
+                                disabled={(date: Date) =>
+                                    date < new Date("1900-01-01")
+                                }
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+
+                <FormField
+                control={form.control}
+                name="tag"
+                render={({ field }) => (
+                    <FormItem className="flex-1">
+                    <FormLabel>Tag</FormLabel>
+                    <FormControl>
+                         <div className="relative">
+                            <Tag className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input placeholder="e.g. Design" className="pl-9" {...field} />
+                        </div>
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            </div>
 
             <div className="flex justify-end pt-4">
                 <Button disabled={isLoading} type="submit">
