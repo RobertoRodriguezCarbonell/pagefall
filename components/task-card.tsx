@@ -24,6 +24,30 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { TaskDialog } from "./task-dialog";
 
+// Function to convert URLs in text to clickable links
+const linkify = (text: string) => {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  
+  return parts.map((part, index) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a
+          key={index}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-500 hover:text-blue-600 underline underline-offset-2 break-all"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+};
+
 interface TaskProps {
     task: Task
 }
@@ -87,7 +111,7 @@ export function TaskCard({ task }: TaskProps) {
                                 <MoreHorizontal className="h-4 w-4" />
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent align="end" className="bg-background">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             <DropdownMenuSub>
@@ -95,7 +119,7 @@ export function TaskCard({ task }: TaskProps) {
                                     <ArrowRightLeft className="mr-2 h-4 w-4" />
                                     Change Status
                                 </DropdownMenuSubTrigger>
-                                <DropdownMenuSubContent>
+                                <DropdownMenuSubContent className="bg-background">
                                     <DropdownMenuItem onClick={() => handleStatusChange("todo")}>
                                         <Circle className="mr-2 h-4 w-4" />
                                         To Do
@@ -131,8 +155,8 @@ export function TaskCard({ task }: TaskProps) {
             </CardHeader>
             <CardContent className="">
                 {task.description && (
-                    <div className="">
-                        {task.description}
+                    <div className="whitespace-pre-wrap text-sm">
+                        {linkify(task.description)}
                     </div>
                 )}
             </CardContent>
