@@ -3,22 +3,13 @@ import { PageWrapper } from "@/components/page-wrapper";
 import { TaskCard } from "@/components/task-card";
 import { Button } from "@/components/ui/button";
 import { getNotebookById } from "@/server/notebooks";
+import { getTasksByNotebookId } from "@/server/tasks";
 import { Plus } from "lucide-react";
+import { Task } from "@/db/schema";
 
 type Params = Promise<{
     notebookId: string;
 }>;
-
-interface Task {
-    id: string;
-    title: string;
-    description?: string;
-    priority: "low" | "medium" | "high";
-    dueDate?: string;
-    tag?: string;
-    assignedTo?: string;
-    status: string;
-}
 
 interface Column {
     id: string;
@@ -29,30 +20,23 @@ interface Column {
 export default async function TasksPage({ params }: { params: Params }) {
     const { notebookId } = await params;
     const { notebook } = await getNotebookById(notebookId);
+    const { tasks } = await getTasksByNotebookId(notebookId);
 
     const columns: Column[] = [
         { 
             id: "todo", 
             title: "To Do", 
-            tasks: [
-                { id: "1", title: "Research competitors", description: "Analyze market and competitors lorem ipsum dolor sit amet consectetur adipiscing elit", priority: "high", dueDate: "2024-02-15", tag: "Strategy", assignedTo: "Alice", status: "todo" },
-                { id: "2", title: "Draft project proposal", description: "Create initial draft for project proposal", priority: "medium", tag: "Writing", assignedTo: "Bob", status: "todo" }
-            ] 
+            tasks: tasks?.filter(t => t.status === "todo") || []
         },
         { 
             id: "in-progress", 
             title: "In Progress", 
-            tasks: [
-                { id: "3", title: "Design system architecture", description: "Create initial system design", priority: "high", dueDate: "2024-02-20", tag: "Design", assignedTo: "Charlie", status: "in-progress" }
-            ] 
+            tasks: tasks?.filter(t => t.status === "in-progress") || []
         },
         { 
             id: "done", 
             title: "Done", 
-            tasks: [
-                { id: "4", title: "Setup Next.js project", description: "Initial project setup with Next.js", priority: "medium", dueDate: "2024-01-10", tag: "Dev", assignedTo: "Dave", status: "done" },
-                { id: "5", title: "Configure database", description: "Set up and configure the database", priority: "low", tag: "Dev", assignedTo: "Eve", status: "done" }
-            ] 
+            tasks: tasks?.filter(t => t.status === "done") || []
         },
     ];
 
@@ -64,7 +48,7 @@ export default async function TasksPage({ params }: { params: Params }) {
         ]}>
             <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold">Tasks</h1>
-                <CreateTaskButton />
+                <CreateTaskButton notebookId={notebookId} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-full mt-4">

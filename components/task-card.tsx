@@ -4,22 +4,15 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Clock, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Task } from "@/db/schema";
+import { format } from "date-fns";
 
 interface TaskProps {
-    task: {
-        id: string;
-        title: string;
-        description?: string;
-        priority: "low" | "medium" | "high";
-        dueDate?: string;
-        tag?: string;
-        assignedTo?: string;
-        status: string;
-    }
+    task: Task
 }
 
 export function TaskCard({ task }: TaskProps) {
-    const priorityColor = {
+    const priorityColor: Record<string, string> = {
         low: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
         medium: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
         high: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
@@ -30,7 +23,7 @@ export function TaskCard({ task }: TaskProps) {
             <CardHeader className="">
                 <div className="flex justify-between items-start">
                     <div className="flex gap-2 items-center">
-                        <h4 className="font-semibold text-sm leading-tight text-foreground/90 group-hover:text-primary transition-colors">
+                        <h4 className="font-semibold text-lg">
                             {task.title}
                         </h4>
                         <span className={cn(
@@ -62,14 +55,7 @@ export function TaskCard({ task }: TaskProps) {
                     {task.dueDate && (
                         <div className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
-                            <span>{task.dueDate}</span>
-                        </div>
-                    )}
-                </div>
-                <div className="flex -space-x-2">
-                    {task.assignedTo && (
-                        <div className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary font-medium text-xs">
-                            {task.assignedTo.charAt(0).toUpperCase()}
+                            <span>{format(new Date(task.dueDate), "MMM d")}</span>
                         </div>
                     )}
                 </div>

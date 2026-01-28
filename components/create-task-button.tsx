@@ -31,6 +31,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
+import { createTask } from "@/server/tasks";
 
 const formSchema = z.object({
   title: z.string().min(2).max(50),
@@ -41,7 +42,11 @@ const formSchema = z.object({
   tag: z.string().optional(),
 });
 
-export const CreateTaskButton = () => {
+interface CreateTaskButtonProps {
+    notebookId: string;
+}
+
+export const CreateTaskButton = ({ notebookId }: CreateTaskButtonProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
@@ -59,13 +64,18 @@ export const CreateTaskButton = () => {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       setIsLoading(true);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log("Creating task:", values);
-      toast.success("Task created (mock)!");
-      setIsOpen(false);
-      form.reset();
+      const res = await createTask({
+        ...values,
+        notebookId,
+      });
+
+      if (res.success) {
+        toast.success("Task created successfully!");
+        setIsOpen(false);
+        form.reset();
+      } else {
+        toast.error("Failed to create task");
+      }
     } catch {
       toast.error("Failed to create task");
     } finally {

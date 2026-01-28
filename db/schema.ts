@@ -83,6 +83,7 @@ export const notebooks = pgTable("notebooks", {
 
 export const notebookRelations = relations(notebooks, ({ many, one }) => ({
   notes: many(notes),
+  tasks: many(tasks),
   user: one(user, {
     fields: [notebooks.userId],
     references: [user.id]
@@ -106,6 +107,7 @@ export const settingsRelations = relations(settings, ({ one }) => ({
 
 export type Notebook = typeof notebooks.$inferSelect & {
   notes: Note[];
+  tasks: Task[];
 };
 export type InsertNotebook = typeof notebooks.$inferInsert;
 
@@ -158,6 +160,30 @@ export const commentRelations = relations(comments, ({ one }) => ({
 export type Note = typeof notes.$inferSelect;
 export type InsertNote = typeof notes.$inferInsert;
 
+export const tasks = pgTable("tasks", {
+  id: text('id').primaryKey().default(sql`gen_random_uuid()`),
+  title: text('title').notNull(),
+  description: text('description'),
+  status: text('status').notNull().default('todo'), // todo, in-progress, done
+  priority: text('priority').notNull().default('medium'), // low, medium, high
+  dueDate: timestamp('due_date'),
+  tag: text('tag'),
+  notebookId: text('notebook_id').notNull().references(() => notebooks.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').$defaultFn(() => /* @__PURE__ */ new Date()),
+  updatedAt: timestamp('updated_at').$defaultFn(() => /* @__PURE__ */ new Date())
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+});
+
+export const taskRelations = relations(tasks, ({ one }) => ({
+  notebook: one(notebooks, {
+    fields: [tasks.notebookId],
+    references: [notebooks.id]
+  })
+}));
+
+export type Task = typeof tasks.$inferSelect;
+export type InsertTask = typeof tasks.$inferInsert;
+
 export const userRelations = relations(user, ({ many, one }) => ({
   sessions: many(session),
   accounts: many(account),
@@ -180,4 +206,4 @@ export const accountRelations = relations(account, ({ one }) => ({
   }),
 }));
 
-export const schema = { user, session, account, verification, notebooks, notes, notebookRelations, noteRelations, settings, settingsRelations, comments, commentRelations, userRelations, sessionRelations, accountRelations };
+export const schema = { user, session, account, verification, notebooks, notes, tasks, notebookRelations, noteRelations, taskRelations, settings, settingsRelations, comments, commentRelations, userRelations, sessionRelations, accountRelations };
