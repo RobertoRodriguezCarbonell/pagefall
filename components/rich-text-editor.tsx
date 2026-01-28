@@ -279,6 +279,20 @@ const RichTextEditor = ({ content, noteId, notebookId, noteTitle, className, com
     content,
   });
 
+  useEffect(() => {
+    if (!editor) return;
+
+    const handleUploadEvent = () => {
+      fileInputRef.current?.click();
+    };
+
+    const dom = editor.view.dom;
+    dom.addEventListener('trigger-image-upload', handleUploadEvent);
+    return () => {
+      dom.removeEventListener('trigger-image-upload', handleUploadEvent);
+    };
+  }, [editor]);
+
   // Log loaded content
   useEffect(() => {
     if (content) {

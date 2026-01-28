@@ -19,6 +19,7 @@ import {
   Text,
   Quote,
   Code,
+  Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -247,6 +248,15 @@ const getSuggestionItems = ({ query }: { query: string }) => {
       icon: <Code className="h-4 w-4" />,
       command: ({ editor, range }: { editor: Editor; range: Range }) => {
         editor.chain().focus().deleteRange(range).toggleCodeBlock().run();
+      },
+    },
+    {
+      title: "Image",
+      icon: <ImageIcon className="h-4 w-4" />,
+      command: ({ editor, range }: { editor: Editor; range: Range }) => {
+        editor.chain().focus().deleteRange(range).run();
+        const event = new Event('trigger-image-upload');
+        editor.view.dom.dispatchEvent(event);
       },
     },
   ].filter((item) =>
