@@ -190,6 +190,7 @@ export default function NotePageClient({ note }: NotePageClientProps) {
                         <RichTextEditor 
                             content={note?.content as JSONContent[]}
                             noteId={note?.id}
+                            notebookId={note?.notebook?.id}
                             noteTitle={note?.title}
                             className="flex-1 min-h-0 flex flex-col"
                             comments={comments}

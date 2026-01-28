@@ -112,6 +112,7 @@ const TaskMention = Mention.extend({
 interface RichTextEditorProps {
   content?: JSONContent[];
   noteId?: string;
+  notebookId?: string;
   noteTitle?: string;
   className?: string;
   comments?: Array<{ id: string; selectionText?: string | null }>;
@@ -130,7 +131,7 @@ interface RichTextEditorProps {
   onCommentClick?: (commentId: string) => void;
 }
 
-const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], showComments = false, onEditorReady, onTextSelection, onCommentClick }: RichTextEditorProps) => {
+const RichTextEditor = ({ content, noteId, notebookId, noteTitle, className, comments = [], showComments = false, onEditorReady, onTextSelection, onCommentClick }: RichTextEditorProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [pdfFileName, setPdfFileName] = useState(noteTitle || 'note');
   const [hasSuggestions, setHasSuggestions] = useState(false);
@@ -155,7 +156,7 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
         },
         suggestion: {
           items: async ({ query }) => {
-            const { results } = await searchTasks(query);
+            const { results } = await searchTasks(query, notebookId);
             return results || [];
           },
           render: () => {

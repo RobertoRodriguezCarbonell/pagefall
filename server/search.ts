@@ -123,7 +123,7 @@ export const searchDocuments = async (query: string) => {
     }
 };
 
-export const searchTasks = async (query: string) => {
+export const searchTasks = async (query: string, notebookId?: string) => {
     try {
         const session = await auth.api.getSession({
             headers: await headers()
@@ -146,7 +146,8 @@ export const searchTasks = async (query: string) => {
         .where(
             and(
                 eq(notebooks.userId, userId),
-                ilike(tasks.title, `%${query}%`)
+                ilike(tasks.title, `%${query}%`),
+                notebookId ? eq(tasks.notebookId, notebookId) : undefined
             )
         )
         .limit(10);
