@@ -31,11 +31,32 @@ export const getTasksByNotebookId = async (notebookId: string) => {
     }
 };
 
-export const updateTaskStatus = async (taskId: string, status: string) => {
+export const updateTask = async (taskId: string, values: Partial<InsertTask>, notebookId: string) => {
+    try {
+        await db.update(tasks).set({ ...values, updatedAt: new Date() }).where(eq(tasks.id, taskId));
+        revalidatePath(`/dashboard/notebook/${notebookId}/tasks`);
+        return { success: true, message: "Task updated successfully" };
+    } catch {
+        return { success: false, message: "Failed to update task" };
+    }
+};
+
+export const updateTaskStatus = async (taskId: string, status: string, notebookId: string) => {
     try {
         await db.update(tasks).set({ status }).where(eq(tasks.id, taskId));
+        revalidatePath(`/dashboard/notebook/${notebookId}/tasks`);
         return { success: true, message: "Task status updated successfully" };
     } catch {
         return { success: false, message: "Failed to update task status" };
+    }
+};
+
+export const deleteTask = async (taskId: string, notebookId: string) => {
+    try {
+        await db.delete(tasks).where(eq(tasks.id, taskId));
+        revalidatePath(`/dashboard/notebook/${notebookId}/tasks`);
+        return { success: true, message: "Task deleted successfully" };
+    } catch {
+        return { success: false, message: "Failed to delete task" };
     }
 };
