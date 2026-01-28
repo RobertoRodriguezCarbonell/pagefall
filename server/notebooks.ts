@@ -30,7 +30,8 @@ export const getNotebooks = async () => {
         const notebooksByUser = await db.query.notebooks.findMany({
             where: eq(notebooks.userId, userId),
             with: {
-                notes: true
+                notes: true,
+                tasks: true,
             }
         });
 
@@ -45,7 +46,8 @@ export const getNotebookById = async (id: string) => {
         const notebook = await db.query.notebooks.findFirst({
             where: eq(notebooks.id, id),
             with: {
-                notes: true
+                notes: true,
+                tasks: true,
             }
         });
 
