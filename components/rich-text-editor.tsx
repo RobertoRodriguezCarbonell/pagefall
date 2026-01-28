@@ -71,6 +71,31 @@ import { saveNoteContent } from "@/server/notes";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas-pro";
+import Image from "@tiptap/extension-image";
+import { Loader2, Image as ImageIcon } from "lucide-react";
+
+import { ResizableImageComponent } from "./resizable-image-component";
+
+const ResizableImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      width: {
+        default: null,
+      },
+      height: {
+        default: null,
+      },
+      isUploading: {
+        default: false,
+      },
+    }
+  },
+  
+  addNodeView() {
+    return ReactNodeViewRenderer(ResizableImageComponent)
+  },
+})
 
 const TaskMention = Mention.extend({
   addAttributes() {
@@ -137,6 +162,8 @@ const RichTextEditor = ({ content, noteId, notebookId, noteTitle, className, com
   const [hasSuggestions, setHasSuggestions] = useState(false);
   const [suggestionHistory, setSuggestionHistory] = useState<Map<string, { originalText: string, from: number, to: number }>>(new Map());
   const editorRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const editor = useEditor({
@@ -223,6 +250,9 @@ const RichTextEditor = ({ content, noteId, notebookId, noteTitle, className, com
       }),
       SubscriptExtension,
       SuperscriptExtension,
+      ResizableImage.configure({
+        allowBase64: true,
+      }),
     ],
     immediatelyRender: false,
     autofocus: true,
@@ -1055,6 +1085,92 @@ const RichTextEditor = ({ content, noteId, notebookId, noteTitle, className, com
     setIsDialogOpen(true);
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+       toast.error("Please upload an image file");
+       return;
+    }
+
+    try {
+      setIsUploading(true);
+      
+      // 1. Create optimistic preview
+      const objectUrl = URL.createObjectURL(file);
+      
+      // 2. Insert image with uploading state
+      editor?.chain().focus().setImage({ 
+          src: objectUrl,
+          // @ts-ignore - custom attribute
+          isUploading: true 
+      }).run();
+      
+      // Get the position of the newly inserted image to update it later?
+      // Actually, we can just replace the src later if we can find it, 
+      // or easier: we rely on the objectUrl for now.
+      
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const data = await response.json();
+      
+      if (data.url) {
+        // 3. Find the image node with the objectUrl and update it
+        // We scan the document to find the node with matching src
+        let pos = -1;
+        editor?.state.doc.descendants((node, position) => {
+            if (node.type.name === 'image' && node.attrs.src === objectUrl) {
+                pos = position;
+                return false; // Stop iteration
+            }
+        });
+
+        if (pos > -1) {
+            // Update the node: set new src and set isUploading to false
+            const transaction = editor?.state.tr.setNodeMarkup(pos, undefined, {
+                ...editor?.state.doc.nodeAt(pos)?.attrs,
+                src: data.url,
+                isUploading: false
+            });
+            if (transaction) {
+               editor?.view.dispatch(transaction);
+            }
+        }
+        
+        toast.success("Image uploaded successfully");
+      }
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      toast.error("Failed to upload image");
+      
+      // Cleanup: Remove the broken image node if upload failed
+      // (Optional, or leave it so user knows it failed?)
+      // Let's remove it to be clean.
+      /* 
+      let pos = -1;
+      editor?.state.doc.descendants((node, position) => { ... });
+      if (pos > -1) { editor?.chain().deleteRange({ from: pos, to: pos + 1 }).run(); } 
+      */
+    } finally {
+      setIsUploading(false);
+      // Reset input value
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
   return (
     <div className={cn("w-full max-w-7xl bg-card text-card-foreground rounded-lg border tiptap-editor-container", className)}>
 
@@ -1334,6 +1450,25 @@ const RichTextEditor = ({ content, noteId, notebookId, noteTitle, className, com
 
         <div className="flex-1" />
 
+        <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            accept="image/*"
+            onChange={handleImageUpload}
+        />
+        
+        <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="size-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent"
+            title="Insert Image"
+        >
+            {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
+        </Button>
+
         <Button
           variant="ghost"
           size="sm"
@@ -1343,16 +1478,6 @@ const RichTextEditor = ({ content, noteId, notebookId, noteTitle, className, com
         >
           <FileDown className="h-4 w-4" />
           Export PDF
-        </Button>
-
-        <Button
-          variant="ghost"
-          size="sm"
-          onMouseDown={(e) => e.preventDefault()}
-          className="h-8 px-2 text-muted-foreground hover:text-foreground hover:bg-accent gap-1"
-        >
-          <Plus className="h-4 w-4" />
-          Add
         </Button>
       </div>
 
