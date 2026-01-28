@@ -75,7 +75,7 @@ export const HeroHeader = () => {
                                             </Link>
                                         </Button>
                                         <Button onClick={handleLogout}>
-                                            <span>Cerrar sesión</span>
+                                            <span>Logout</span>
                                         </Button>
                                     </>
                                 ) : (
