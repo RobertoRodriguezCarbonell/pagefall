@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db/drizzle";
-import { notebooks, notes } from "@/db/schema";
+import { notebooks, notes, tasks } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { eq, ilike, or, and, sql, desc } from "drizzle-orm";
 import { headers } from "next/headers";
@@ -122,3 +122,39 @@ export const searchDocuments = async (query: string) => {
         return { success: false, message: "Failed to perform search" };
     }
 };
+
+export const searchTasks = async (query: string) => {
+    try {
+        const session = await auth.api.getSession({
+            headers: await headers()
+        });
+
+        const userId = session?.user?.id;
+
+        if (!userId) {
+            return { success: false, message: "User not found" };
+        }
+
+        const foundTasks = await db.select({
+            id: tasks.id,
+            title: tasks.title,
+            status: tasks.status,
+            priority: tasks.priority,
+            notebookId: tasks.notebookId
+        }).from(tasks)
+        .innerJoin(notebooks, eq(tasks.notebookId, notebooks.id))
+        .where(
+            and(
+                eq(notebooks.userId, userId),
+                ilike(tasks.title, `%${query}%`)
+            )
+        )
+        .limit(10);
+
+        return { success: true, results: foundTasks };
+    } catch (error) {
+        console.error("Search tasks error:", error);
+        return { success: false, message: "Failed to search tasks" };
+    }
+}
+

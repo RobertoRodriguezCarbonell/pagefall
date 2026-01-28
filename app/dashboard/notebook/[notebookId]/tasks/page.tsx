@@ -5,6 +5,7 @@ import { getNotebookById } from "@/server/notebooks";
 import { getTasksByNotebookId } from "@/server/tasks";
 import { Task } from "@/db/schema";
 import { AddTaskColumnButton } from "@/components/add-task-column-button";
+import { TaskUrlManager } from "@/components/task-url-manager";
 
 type Params = Promise<{
     notebookId: string;
@@ -45,6 +46,7 @@ export default async function TasksPage({ params }: { params: Params }) {
             { label: notebook?.name ?? "Notebook", href: `/dashboard/notebook/${notebookId}` },
             { label: "Tasks", href: `/dashboard/notebook/${notebookId}/tasks` },
         ]}>
+            <TaskUrlManager notebookId={notebookId} tasks={tasks || []} />
             <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold">Tasks</h1>
                 <CreateTaskButton notebookId={notebookId} />

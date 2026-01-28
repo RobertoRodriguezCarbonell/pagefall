@@ -5,6 +5,9 @@ import {
   EditorContent,
   useEditorState,
   type JSONContent,
+  ReactRenderer,
+  mergeAttributes,
+  ReactNodeViewRenderer,
 } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Document from "@tiptap/extension-document";
@@ -15,10 +18,15 @@ import LinkExtension from "@tiptap/extension-link";
 import TextAlign from "@tiptap/extension-text-align";
 import SubscriptExtension from "@tiptap/extension-subscript";
 import SuperscriptExtension from "@tiptap/extension-superscript";
+import Mention from "@tiptap/extension-mention";
 import { DOMParser } from "@tiptap/pm/model";
 import { AISuggestion } from "@/lib/tiptap-ai-suggestion";
 import { CommentMark } from "@/lib/tiptap-comment-mark";
 import { SlashCommand, slashCommandSuggestion } from "./slash-command";
+import { TaskMentionList } from "./task-mention-list";
+import { TaskMentionComponent } from "./task-mention-component";
+import { searchTasks } from "@/server/search";
+import tippy from "tippy.js";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
@@ -64,6 +72,43 @@ import { toast } from "sonner";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas-pro";
 
+const TaskMention = Mention.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      notebookId: {
+        default: null,
+        parseHTML: element => element.getAttribute('data-notebook-id'),
+        renderHTML: attributes => {
+          if (!attributes.notebookId) {
+            return {}
+          }
+          return {
+            'data-notebook-id': attributes.notebookId,
+          }
+        },
+      },
+    }
+  },
+  
+  addNodeView() {
+    return ReactNodeViewRenderer(TaskMentionComponent)
+  },
+
+  renderHTML({ node, HTMLAttributes }) {
+    return [
+      'a',
+      mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, {
+        href: `/dashboard/notebook/${node.attrs.notebookId}/tasks?taskId=${node.attrs.id}`,
+        target: '_blank',
+        rel: 'noopener noreferrer',
+        class: 'cursor-pointer hover:underline decoration-1 underline-offset-2'
+      }),
+      `@${node.attrs.label ?? node.attrs.id}`,
+    ]
+  },
+})
+
 interface RichTextEditorProps {
   content?: JSONContent[];
   noteId?: string;
@@ -103,6 +148,68 @@ const RichTextEditor = ({ content, noteId, noteTitle, className, comments = [], 
       CommentMark,
       SlashCommand.configure({
         suggestion: slashCommandSuggestion,
+      }),
+      TaskMention.configure({
+        HTMLAttributes: {
+          class: 'inline-flex items-center rounded-md border px-1 py-0.5 text-xs font-medium text-foreground bg-secondary',
+        },
+        suggestion: {
+          items: async ({ query }) => {
+            const { results } = await searchTasks(query);
+            return results || [];
+          },
+          render: () => {
+            let component: any;
+            let popup: any;
+
+            return {
+              onStart: (props: any) => {
+                component = new ReactRenderer(TaskMentionList, {
+                  props,
+                  editor: props.editor,
+                })
+
+                if (!props.clientRect) {
+                  return
+                }
+
+                popup = tippy('body', {
+                  getReferenceClientRect: props.clientRect as any,
+                  appendTo: () => document.body,
+                  content: component.element,
+                  showOnCreate: true,
+                  interactive: true,
+                  trigger: 'manual',
+                  placement: 'bottom-start',
+                })
+              },
+              onUpdate(props: any) {
+                component.updateProps(props)
+
+                if (!props.clientRect) {
+                  return
+                }
+
+                popup[0].setProps({
+                  getReferenceClientRect: props.clientRect,
+                })
+              },
+              onKeyDown(props: any) {
+                if (props.event.key === 'Escape') {
+                  popup[0].hide()
+
+                  return true
+                }
+
+                return component.ref?.onKeyDown(props)
+              },
+              onExit() {
+                popup[0].destroy()
+                component.destroy()
+              },
+            }
+          },
+        },
       }),
       UnderlineExtension,
       LinkExtension.configure({
