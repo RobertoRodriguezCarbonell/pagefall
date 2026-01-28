@@ -1,11 +1,10 @@
 import { CreateTaskButton } from "@/components/create-task-button";
 import { PageWrapper } from "@/components/page-wrapper";
 import { TaskCard } from "@/components/task-card";
-import { Button } from "@/components/ui/button";
 import { getNotebookById } from "@/server/notebooks";
 import { getTasksByNotebookId } from "@/server/tasks";
-import { Plus } from "lucide-react";
 import { Task } from "@/db/schema";
+import { AddTaskColumnButton } from "@/components/add-task-column-button";
 
 type Params = Promise<{
     notebookId: string;
@@ -65,10 +64,11 @@ export default async function TasksPage({ params }: { params: Params }) {
                             {column.tasks.map((task) => (
                                 <TaskCard key={task.id} task={task} />
                             ))}
-                            <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-foreground border border-dashed border-transparent hover:border-border hover:bg-muted/50">
-                                <Plus className="mr-2 h-4 w-4" />
-                                Add {column.title}
-                            </Button>
+                            <AddTaskColumnButton 
+                                notebookId={notebookId} 
+                                status={column.id as "todo" | "in-progress" | "done"} 
+                                label={`Add ${column.title}`} 
+                            />
                         </div>
                     </div>
                 ))}

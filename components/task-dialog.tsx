@@ -47,9 +47,10 @@ interface TaskDialogProps {
     onOpenChange: (open: boolean) => void;
     notebookId: string;
     task?: Task; // If provided, we are in "Edit" mode
+    defaultStatus?: "todo" | "in-progress" | "done";
 }
 
-export const TaskDialog = ({ open, onOpenChange, notebookId, task }: TaskDialogProps) => {
+export const TaskDialog = ({ open, onOpenChange, notebookId, task, defaultStatus = "todo" }: TaskDialogProps) => {
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -57,7 +58,7 @@ export const TaskDialog = ({ open, onOpenChange, notebookId, task }: TaskDialogP
     defaultValues: {
       title: "",
       description: "",
-      status: "todo",
+      status: defaultStatus,
       priority: "medium",
       tag: "",
     },
@@ -78,12 +79,12 @@ export const TaskDialog = ({ open, onOpenChange, notebookId, task }: TaskDialogP
         form.reset({
             title: "",
             description: "",
-            status: "todo",
+            status: defaultStatus,
             priority: "medium",
             tag: "",
         })
     }
-  }, [task, form, open]);
+  }, [task, form, open, defaultStatus]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
