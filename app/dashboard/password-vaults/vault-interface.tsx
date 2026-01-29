@@ -17,7 +17,11 @@ import {
   Shield,
   ShieldCheck,
   LayoutGrid,
-  List as ListIcon
+  List as ListIcon,
+  Wand2,
+  Settings,
+  RefreshCw,
+  KeyRound,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -32,6 +36,12 @@ import {
   DialogClose,
 } from "@/components/ui/dialog"
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -44,6 +54,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
@@ -65,6 +85,14 @@ interface PasswordEntry {
   website?: string
   notes?: string
   createdAt: Date
+}
+
+interface PasswordGenerationSettings {
+  length: number
+  useUppercase: boolean
+  useLowercase: boolean
+  useNumbers: boolean
+  useSymbols: boolean
 }
 
 // Mock Data
@@ -116,10 +144,19 @@ export function VaultInterface() {
   const [isAddGroupOpen, setIsAddGroupOpen] = useState(false)
   const [isAddEntryOpen, setIsAddEntryOpen] = useState(false)
   const [editingEntry, setEditingEntry] = useState<PasswordEntry | null>(null)
+  const [isGeneratorSettingsOpen, setIsGeneratorSettingsOpen] = useState(false)
+  const [entryToDelete, setEntryToDelete] = useState<string | null>(null)
   
   // Form States
   const [newGroupName, setNewGroupName] = useState("")
   const [entryForm, setEntryForm] = useState<Partial<PasswordEntry>>({})
+  const [generatorSettings, setGeneratorSettings] = useState<PasswordGenerationSettings>({
+    length: 16,
+    useUppercase: true,
+    useLowercase: true,
+    useNumbers: true,
+    useSymbols: true,
+  })
   
   // Toggle Password Visibility State (per entry id)
   const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({})
@@ -186,6 +223,32 @@ export function VaultInterface() {
     setEditingEntry(entry)
     setEntryForm(entry)
     setIsAddEntryOpen(true)
+  }
+
+  const generatePassword = () => {
+    const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    const lowercase = "abcdefghijklmnopqrstuvwxyz"
+    const numbers = "0123456789"
+    const symbols = "!@#$%^&*()_+-=[]{}|;:,.<>?"
+    
+    let chars = ""
+    if (generatorSettings.useUppercase) chars += uppercase
+    if (generatorSettings.useLowercase) chars += lowercase
+    if (generatorSettings.useNumbers) chars += numbers
+    if (generatorSettings.useSymbols) chars += symbols
+    
+    if (chars === "") {
+        toast.error("Please select at least one character type")
+        return
+    }
+
+    let password = ""
+    for (let i = 0; i < generatorSettings.length; i++) {
+        password += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    
+    setEntryForm(prev => ({ ...prev, password }))
+    toast.success("Password generated")
   }
 
   return (
@@ -319,14 +382,100 @@ export function VaultInterface() {
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="password">Password</Label>
-                      <div className="relative">
-                        <Input
-                          id="password"
-                          type="password" // Always hide in edit mode inputs for safety, maybe show toggle later
-                          value={entryForm.password || ""}
-                          onChange={(e) => setEntryForm({...entryForm, password: e.target.value})}
-                          placeholder="••••••••"
-                        />
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Input
+                            id="password"
+                            type="password" // Always hide in edit mode inputs for safety, maybe show toggle later
+                            value={entryForm.password || ""}
+                            onChange={(e) => setEntryForm({...entryForm, password: e.target.value})}
+                            placeholder="••••••••"
+                          />
+                        </div>
+                        <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button size="icon" variant="outline" type="button" onClick={generatePassword}>
+                                  <Wand2 className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Generate Password</p>
+                              </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                         <Dialog open={isGeneratorSettingsOpen} onOpenChange={setIsGeneratorSettingsOpen}>
+                            <DialogTrigger asChild>
+                                <Button size="icon" variant="outline" type="button">
+                                   <Settings className="h-4 w-4" />
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Password Generator Settings</DialogTitle>
+                                    <DialogDescription>
+                                        Customize how your passwords are generated.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="grid gap-4 py-4">
+                                     <div className="grid gap-2">
+                                        <div className="flex items-center justify-between">
+                                            <Label htmlFor="length">Length: {generatorSettings.length}</Label>
+                                        </div>
+                                        <input 
+                                            type="range" 
+                                            min="8" 
+                                            max="64" 
+                                            value={generatorSettings.length} 
+                                            onChange={(e) => setGeneratorSettings({...generatorSettings, length: parseInt(e.target.value)})}
+                                            className="w-full accent-primary"
+                                        />
+                                     </div>
+                                     <div className="grid gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <input 
+                                                type="checkbox" 
+                                                id="uppercase" 
+                                                checked={generatorSettings.useUppercase} 
+                                                onChange={(e) => setGeneratorSettings({...generatorSettings, useUppercase: e.target.checked})}
+                                                className="accent-primary h-4 w-4"
+                                            />
+                                            <Label htmlFor="uppercase">Uppercase Letters (A-Z)</Label>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <input 
+                                                type="checkbox" 
+                                                id="lowercase" 
+                                                checked={generatorSettings.useLowercase} 
+                                                onChange={(e) => setGeneratorSettings({...generatorSettings, useLowercase: e.target.checked})}
+                                                className="accent-primary h-4 w-4"
+                                            />
+                                            <Label htmlFor="lowercase">Lowercase Letters (a-z)</Label>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <input 
+                                                type="checkbox" 
+                                                id="numbers" 
+                                                checked={generatorSettings.useNumbers} 
+                                                onChange={(e) => setGeneratorSettings({...generatorSettings, useNumbers: e.target.checked})}
+                                                className="accent-primary h-4 w-4"
+                                            />
+                                            <Label htmlFor="numbers">Numbers (0-9)</Label>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <input 
+                                                type="checkbox" 
+                                                id="symbols" 
+                                                checked={generatorSettings.useSymbols} 
+                                                onChange={(e) => setGeneratorSettings({...generatorSettings, useSymbols: e.target.checked})}
+                                                className="accent-primary h-4 w-4"
+                                            />
+                                            <Label htmlFor="symbols">Symbols (!@#$)</Label>
+                                        </div>
+                                     </div>
+                                </div>
+                            </DialogContent>
+                         </Dialog>
                       </div>
                     </div>
                     <div className="grid gap-2">
@@ -367,8 +516,8 @@ export function VaultInterface() {
         <CardContent className="flex-1 overflow-y-auto p-4 bg-muted/50">
           {filteredEntries.length === 0 ? (
              <div className="flex h-full flex-col items-center justify-center text-muted-foreground space-y-4">
-                <div className="p-4 bg-background rounded-full shadow-sm">
-                    <Shield className="h-12 w-12 text-muted-foreground/50" />
+                <div className="">
+                    <KeyRound className="h-12 w-12 text-primary" />
                 </div>
                 <p>No passwords found in this group.</p>
                 <Button variant="outline" onClick={() => setIsAddEntryOpen(true)}>Add your first password</Button>
@@ -408,7 +557,10 @@ export function VaultInterface() {
                          <DropdownMenuItem onClick={() => openEditDialog(entry)}>
                            <Edit2 className="mr-2 h-4 w-4" /> Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteEntry(entry.id)}>
+                        <DropdownMenuItem 
+                            className="text-destructive focus:text-destructive" 
+                            onClick={() => setEntryToDelete(entry.id)}
+                        >
                            <Trash2 className="mr-2 h-4 w-4" /> Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -462,6 +614,24 @@ export function VaultInterface() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!entryToDelete} onOpenChange={(open) => !open && setEntryToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the password entry for
+              <span className="font-semibold text-foreground"> "{entries.find(e => e.id === entryToDelete)?.title}"</span>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => entryToDelete && handleDeleteEntry(entryToDelete)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete Password
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
