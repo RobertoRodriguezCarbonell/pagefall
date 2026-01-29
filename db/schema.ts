@@ -78,16 +78,33 @@ export const notebooks = pgTable("notebooks", {
   name: text('name').notNull(),
   userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
   createdAt: timestamp('created_at').$defaultFn(() => /* @__PURE__ */ new Date()),
-  updatedAt: timestamp('updated_at').$defaultFn(() => /* @__PURE__ */ new Date()),
-  apiKey: text('api_key'), // 👈 Nuevo campo para la API Key
+  updatedAt: timestamp('updated_at').$defaultFn(() => /* @__PURE__ */ new Date())
 });
 
 export const notebookRelations = relations(notebooks, ({ many, one }) => ({
   notes: many(notes),
   tasks: many(tasks),
+  apiKeys: many(apiKeys),
   user: one(user, {
     fields: [notebooks.userId],
     references: [user.id]
+  })
+}));
+
+export const apiKeys = pgTable("api_keys", {
+  id: text('id').primaryKey().default(sql`gen_random_uuid()`),
+  name: text('name').notNull(),
+  key: text('key').notNull().unique(), // pf_...
+  permission: text('permission').notNull().default('read_only'), // 'read_only' | 'full_access'
+  notebookId: text('notebook_id').notNull().references(() => notebooks.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').$defaultFn(() => /* @__PURE__ */ new Date()),
+  lastUsedAt: timestamp('last_used_at'),
+});
+
+export const apiKeyRelations = relations(apiKeys, ({ one }) => ({
+  notebook: one(notebooks, {
+    fields: [apiKeys.notebookId],
+    references: [notebooks.id]
   })
 }));
 
@@ -207,4 +224,4 @@ export const accountRelations = relations(account, ({ one }) => ({
   }),
 }));
 
-export const schema = { user, session, account, verification, notebooks, notes, tasks, notebookRelations, noteRelations, taskRelations, settings, settingsRelations, comments, commentRelations, userRelations, sessionRelations, accountRelations };
+export const schema = { user, session, account, verification, notebooks, notes, tasks, notebookRelations, noteRelations, taskRelations, settings, settingsRelations, comments, commentRelations, userRelations, sessionRelations, accountRelations, apiKeys, apiKeyRelations };

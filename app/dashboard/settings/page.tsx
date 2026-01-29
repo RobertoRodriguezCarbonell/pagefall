@@ -6,21 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Copy, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Copy, Eye, EyeOff, Loader2, Key } from "lucide-react";
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { saveOpenAIApiKey, getOpenAIApiKey } from "@/server/settings";
 import { getNotebooks } from "@/server/notebooks";
-import { generateNotebookApiKey, revokeNotebookApiKey } from "@/server/api-keys";
-import { RefreshCw, Trash2, Key } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { NotebookKeyManager } from "@/components/notebook-key-manager";
 
-type NotebookWithKey = {
+type Notebook = {
     id: string;
     name: string;
-    apiKey: string | null;
 }
 
 export default function SettingsPage() {
@@ -30,9 +27,8 @@ export default function SettingsPage() {
     const [isTesting, setIsTesting] = useState(false);
     
     // Notebook API Keys State
-    const [notebooks, setNotebooks] = useState<NotebookWithKey[]>([]);
+    const [notebooks, setNotebooks] = useState<Notebook[]>([]);
     const [isLoadingNotebooks, setIsLoadingNotebooks] = useState(true);
-    const [generatingId, setGeneratingId] = useState<string | null>(null);
 
     const { theme } = useTheme();
     const [mounted, setMounted] = useState(false);
@@ -51,57 +47,14 @@ export default function SettingsPage() {
             setIsLoadingNotebooks(true);
             const notebooksResult = await getNotebooks();
             if (notebooksResult.success && notebooksResult.notebooks) {
-                setNotebooks(notebooksResult.notebooks);
+                // Ensure we only store what we need. The result might satisfy the type
+                // but let's be safe if backend returns extra stuff.
+                setNotebooks(notebooksResult.notebooks.map(n => ({ id: n.id, name: n.name })));
             }
             setIsLoadingNotebooks(false);
         };
         loadSettings();
     }, []);
-
-    const handleGenerateKey = async (notebookId: string) => {
-        setGeneratingId(notebookId);
-        try {
-            const result = await generateNotebookApiKey(notebookId);
-            if (result.success && result.apiKey) {
-                setNotebooks(prev => prev.map(n => 
-                    n.id === notebookId ? { ...n, apiKey: result.apiKey! } : n
-                ));
-                toast.success("API Key generated successfully");
-            } else {
-                toast.error("Failed to generate API Key");
-            }
-        } catch {
-            toast.error("An error occurred");
-        } finally {
-            setGeneratingId(null);
-        }
-    };
-
-    const handleRevokeKey = async (notebookId: string) => {
-        if (!confirm("Are you sure you want to revoke this API Key? External integrations will stop working.")) return;
-
-        setGeneratingId(notebookId);
-        try {
-            const result = await revokeNotebookApiKey(notebookId);
-            if (result.success) {
-                setNotebooks(prev => prev.map(n => 
-                    n.id === notebookId ? { ...n, apiKey: null } : n
-                ));
-                toast.success("API Key revoked");
-            } else {
-                toast.error("Failed to revoke API Key");
-            }
-        } catch {
-            toast.error("An error occurred");
-        } finally {
-            setGeneratingId(null);
-        }
-    };
-
-    const handleCopyNotebookKey = (key: string) => {
-        navigator.clipboard.writeText(key);
-        toast.success("Copied to clipboard");
-    };
 
     const handleSaveApiKey = async () => {
         if (!apiKey.trim()) {
@@ -268,96 +221,33 @@ export default function SettingsPage() {
                     {/* Pagefall Notebook API Keys */}
                     <div className="space-y-4">
                         <div className="flex items-center gap-2">
-                            <Key className="size-6 text-primary" />
+                            <div className="p-2 bg-primary/10 rounded-md">
+                                <Key className="size-6 text-primary" />
+                            </div>
                             <div>
                                 <h3 className="text-lg font-semibold">Pagefall API Access</h3>
                                 <p className="text-sm text-muted-foreground">
-                                    Manage unique API Keys for each of your notebooks to connect with external tools (n8n, Postman, etc.).
+                                    Manage API Keys for each of your notebooks to connect with external tools.
                                 </p>
                             </div>
                         </div>
                         
-                        <div className="border rounded-lg divide-y">
+                        <div className="space-y-4">
                             {isLoadingNotebooks ? (
                                 <div className="p-4 flex justify-center">
                                     <Loader2 className="animate-spin size-6 text-muted-foreground" />
                                 </div>
                             ) : notebooks.length === 0 ? (
-                                <div className="p-4 text-center text-muted-foreground">
-                                    No notebooks found. Create one to generate API keys.
+                                <div className="p-8 text-center border rounded-lg bg-muted/20">
+                                    <p className="text-muted-foreground">No notebooks found. Create one to generate API keys.</p>
                                 </div>
                             ) : (
                                 notebooks.map((notebook) => (
-                                    <div key={notebook.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                        <div className="space-y-1">
-                                            <div className="flex items-center gap-2">
-                                                <h4 className="font-medium">{notebook.name}</h4>
-                                                {notebook.apiKey ? (
-                                                    <Badge variant="default" className="bg-green-600 hover:bg-green-700">Active</Badge>
-                                                ) : (
-                                                    <Badge variant="secondary">Disabled</Badge>
-                                                )}
-                                            </div>
-                                            <p className="text-xs text-muted-foreground font-mono">ID: {notebook.id}</p>
-                                        </div>
-
-                                        <div className="flex items-center gap-2">
-                                            {notebook.apiKey ? (
-                                                <div className="flex items-center gap-2 flex-1 sm:flex-none">
-                                                    <div className="relative">
-                                                        <Input 
-                                                            readOnly 
-                                                            value={notebook.apiKey} 
-                                                            type="password"
-                                                            className="w-[180px] font-mono text-xs pr-8" 
-                                                        />
-                                                    </div>
-                                                    <Button 
-                                                        size="sm" 
-                                                        variant="outline"
-                                                        onClick={() => handleCopyNotebookKey(notebook.apiKey!)}
-                                                        title="Copy Key"
-                                                    >
-                                                        <Copy className="size-3" />
-                                                    </Button>
-                                                    <Button 
-                                                        size="sm" 
-                                                        variant="ghost" 
-                                                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                        onClick={() => handleRevokeKey(notebook.id)}
-                                                        disabled={generatingId === notebook.id}
-                                                    >
-                                                        {generatingId === notebook.id ? (
-                                                            <Loader2 className="size-4 animate-spin" />
-                                                        ) : (
-                                                            <Trash2 className="size-4" />
-                                                        )}
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        onClick={() => handleGenerateKey(notebook.id)}
-                                                        title="Regenerate Key"
-                                                        disabled={generatingId === notebook.id}
-                                                    >
-                                                        <RefreshCw className="size-4" />
-                                                    </Button>
-                                                </div>
-                                            ) : (
-                                                <Button 
-                                                    size="sm" 
-                                                    onClick={() => handleGenerateKey(notebook.id)}
-                                                    disabled={generatingId === notebook.id}
-                                                >
-                                                    {generatingId === notebook.id ? (
-                                                        <Loader2 className="size-4 animate-spin mr-2" />
-                                                    ) : (
-                                                        <Key className="size-3 mr-2" />
-                                                    )}
-                                                    Generate Key
-                                                </Button>
-                                            )}
-                                        </div>
+                                    <div key={notebook.id} className="border rounded-lg p-4 bg-card">
+                                        <NotebookKeyManager 
+                                            notebookId={notebook.id}
+                                            notebookName={notebook.name}
+                                        />
                                     </div>
                                 ))
                             )}

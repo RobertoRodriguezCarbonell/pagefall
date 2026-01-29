@@ -12,9 +12,9 @@ export async function POST(req: Request) {
 
     // 2. Security Check (Per-Notebook)
     const apiKey = req.headers.get("x-api-key");
-    if (!notebookId || !(await verifyNotebookApiKey(apiKey, notebookId))) {
+    if (!notebookId || !(await verifyNotebookApiKey(apiKey, notebookId, 'full_access'))) {
       return NextResponse.json(
-        { error: "Unauthorized: Invalid API Key or Notebook ID" },
+        { error: "Unauthorized: Invalid API Key or Notebook ID (Full Access Required)" },
         { status: 401 }
       );
     }

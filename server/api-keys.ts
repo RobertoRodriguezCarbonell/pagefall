@@ -1,23 +1,21 @@
 "use server";
 
 import { db } from "@/db/drizzle";
-import { notebooks } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { notebooks, apiKeys } from "@/db/schema";
+import { eq, and, desc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import crypto from "crypto";
 
-// Generar una nueva API Key para un notebook específico
-export const generateNotebookApiKey = async (notebookId: string) => {
+// Obtener todas las keys de un notebook
+export const getNotebookApiKeys = async (notebookId: string) => {
     const session = await auth.api.getSession({
         headers: await headers()
     });
     
-    if (!session?.user?.id) {
-        return { success: false, error: "Unauthorized" };
-    }
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
 
-    // Verificar que el notebook pertenece al usuario
+    // Verificar ownership del notebook
     const notebook = await db.query.notebooks.findFirst({
         where: and(
             eq(notebooks.id, notebookId),
@@ -25,55 +23,84 @@ export const generateNotebookApiKey = async (notebookId: string) => {
         )
     });
 
-    if (!notebook) {
-        return { success: false, error: "Notebook not found" };
-    }
+    if (!notebook) return { success: false, error: "Notebook not found" };
 
-    // Generar Key: prefijo 'pf_' + 32 caracteres random en hex
+    // Obtener keys
+    const keys = await db.query.apiKeys.findMany({
+        where: eq(apiKeys.notebookId, notebookId),
+        orderBy: [desc(apiKeys.createdAt)]
+    });
+
+    // Mask keys for display
+    const maskedKeys = keys.map(k => ({
+        ...k,
+        key: k.key.substring(0, 6) + "..." + k.key.substring(k.key.length - 4)
+    }));
+
+    return { success: true, keys: maskedKeys };
+};
+
+// Crear una nueva API Key
+export const createNotebookApiKey = async (notebookId: string, name: string, permission: 'read_only' | 'full_access') => {
+    const session = await auth.api.getSession({
+        headers: await headers()
+    });
+    
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+
+    const notebook = await db.query.notebooks.findFirst({
+        where: and(
+            eq(notebooks.id, notebookId),
+            eq(notebooks.userId, session.user.id)
+        )
+    });
+
+    if (!notebook) return { success: false, error: "Notebook not found" };
+
     const apiKey = `pf_${crypto.randomBytes(16).toString('hex')}`;
 
     try {
-        await db.update(notebooks)
-            .set({ apiKey })
-            .where(eq(notebooks.id, notebookId));
+        const [newKey] = await db.insert(apiKeys).values({
+            notebookId,
+            name,
+            permission,
+            key: apiKey
+        }).returning();
         
-        return { success: true, apiKey };
+        return { success: true, apiKey: newKey };
     } catch (error) {
-        console.error("Error generating API Key:", error);
-        return { success: false, error: "Failed to generate API Key" };
+        console.error("Error creating API Key:", error);
+        return { success: false, error: "Failed to create API Key" };
     }
 };
 
-// Revocar (eliminar) la API Key
-export const revokeNotebookApiKey = async (notebookId: string) => {
+// Eliminar (revocar) una API Key
+export const deleteNotebookApiKey = async (keyId: string) => {
     const session = await auth.api.getSession({
         headers: await headers()
     });
     
-    if (!session?.user?.id) {
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+
+    // Verificar que la key pertenece a un notebook del usuario
+    const key = await db.query.apiKeys.findFirst({
+        where: eq(apiKeys.id, keyId),
+        with: {
+            notebook: true
+        }
+    });
+
+    if (!key || !key.notebook) return { success: false, error: "Key not found" };
+
+    if (key.notebook.userId !== session.user.id) {
         return { success: false, error: "Unauthorized" };
     }
 
-    // Verificar propiedad
-    const notebook = await db.query.notebooks.findFirst({
-        where: and(
-            eq(notebooks.id, notebookId),
-            eq(notebooks.userId, session.user.id)
-        )
-    });
-
-    if (!notebook) {
-        return { success: false, error: "Notebook not found" };
-    }
-
     try {
-        await db.update(notebooks)
-            .set({ apiKey: null })
-            .where(eq(notebooks.id, notebookId));
-        
+        await db.delete(apiKeys).where(eq(apiKeys.id, keyId));
         return { success: true };
     } catch (error) {
-        console.error("Error revoking API Key:", error);
-        return { success: false, error: "Failed to revoke API Key" };
+         console.error("Error deleting API Key:", error);
+        return { success: false, error: "Failed to delete API Key" };
     }
 };
