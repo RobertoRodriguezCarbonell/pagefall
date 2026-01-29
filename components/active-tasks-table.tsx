@@ -63,6 +63,15 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 interface ActiveTasksTableProps {
   tasks: {
@@ -95,10 +104,18 @@ export function ActiveTasksTable({ tasks: initialTasks }: ActiveTasksTableProps)
   const [deleteTaskInfo, setDeleteTaskInfo] = React.useState<{ id: string, notebookId: string, title: string } | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
 
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const itemsPerPage = 10;
+
   // Sync state with props if they change (server revalidation)
   React.useEffect(() => {
     setTasks(initialTasks);
   }, [initialTasks]);
+
+  // Reset pagination when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, priorityFilter, notebookFilter, dateFilter]);
 
   // Derived filters
   const uniqueNotebooks = Array.from(new Set(initialTasks.map(t => t.notebook.name))).sort();
@@ -152,6 +169,10 @@ export function ActiveTasksTable({ tasks: initialTasks }: ActiveTasksTableProps)
         return 0;
     });
   }, [filteredTasks, sortConfig]);
+
+  // Pagination Logic
+  const totalPages = Math.ceil(sortedTasks.length / itemsPerPage);
+  const paginatedTasks = sortedTasks.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const handleSort = (key: NonNullable<SortConfig>['key']) => {
     setSortConfig(current => {
@@ -322,7 +343,7 @@ export function ActiveTasksTable({ tasks: initialTasks }: ActiveTasksTableProps)
                             </TableCell>
                         </TableRow>
                     ) : (
-                        sortedTasks.map(({ task, notebook }) => (
+                        paginatedTasks.map(({ task, notebook }) => (
                             <TableRow key={task.id} className="group">
                                 <TableCell className="font-medium">
                                     <div className="flex flex-col">
@@ -419,6 +440,64 @@ export function ActiveTasksTable({ tasks: initialTasks }: ActiveTasksTableProps)
                 </TableBody>
             </Table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+            <Pagination>
+                <PaginationContent>
+                    <PaginationItem>
+                        <PaginationPrevious 
+                            href="#" 
+                            onClick={(e) => {
+                                e.preventDefault();
+                                setCurrentPage(p => Math.max(1, p - 1));
+                            }}
+                            className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                    </PaginationItem>
+                    
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).filter(page => {
+                       // Show first, last, current, and neighbors
+                       return page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1;
+                    }).map((page, index, array) => {
+                         const showEllipsis = index > 0 && page - array[index - 1] > 1;
+                         return (
+                            <React.Fragment key={page}>
+                                {showEllipsis && (
+                                    <PaginationItem>
+                                        <PaginationEllipsis />
+                                    </PaginationItem>
+                                )}
+                                <PaginationItem>
+                                    <PaginationLink 
+                                        href="#"
+                                        isActive={currentPage === page}
+                                        size="icon"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            setCurrentPage(page);
+                                        }}
+                                    >
+                                        {page}
+                                    </PaginationLink>
+                                </PaginationItem>
+                            </React.Fragment>
+                         );
+                    })}
+
+                    <PaginationItem>
+                        <PaginationNext 
+                            href="#"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                setCurrentPage(p => Math.min(totalPages, p + 1));
+                            }}
+                             className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                    </PaginationItem>
+                </PaginationContent>
+            </Pagination>
+        )}
 
         {/* Edit Dialog */}
         <TaskDialog

@@ -16,7 +16,8 @@ export async function POST(req: Request) {
 
     // 2. Obtener datos del cuerpo de la petición
     const body = await req.json();
-    const { title, notebookId, description, priority, dueDate, tag } = body;
+    // AÑADIDO: Extraemos 'status' del body
+    const { title, notebookId, description, priority, dueDate, tag, status } = body;
 
     // 3. Validaciones básicas
     if (!title || !notebookId) {
@@ -26,6 +27,10 @@ export async function POST(req: Request) {
       );
     }
 
+    // Validar que el status sea válido si se envía
+    const validStatuses = ["todo", "in-progress", "done"];
+    const finalStatus = (status && validStatuses.includes(status)) ? status : "todo";
+
     // 4. Insertar la tarea
     const newTask = await db
       .insert(tasks)
@@ -34,7 +39,7 @@ export async function POST(req: Request) {
         notebookId,
         description: description || "",
         priority: priority || "medium",
-        status: "todo",
+        status: finalStatus, // USAMOS EL STATUS PROCESADO
         dueDate: dueDate ? new Date(dueDate) : null,
         tag: tag || "API",
       })
