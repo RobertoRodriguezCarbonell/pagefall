@@ -12,7 +12,7 @@ import {
     SidebarMenuSubButton,
     SidebarMenuSubItem
 } from './ui/sidebar';
-import { ChevronRight, File, Folder, ListTodo } from 'lucide-react';
+import { ChevronRight, File, Folder, KeyRound, ListTodo } from 'lucide-react';
 import { useQueryState } from 'nuqs';
 import { useTheme } from 'next-themes';
 import Image from 'next/image';
@@ -125,6 +125,34 @@ export function SidebarData({ data }: SidebarDataProps) {
                                                 height={28}
                                             />
                                             OpenAI
+                                        </a>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </CollapsibleContent>
+                </SidebarGroup>
+            </Collapsible>
+
+            <Collapsible defaultOpen className="group/collapsible">
+                <SidebarGroup>
+                    <SidebarGroupLabel
+                        asChild
+                        className="group/label text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-sm"
+                    >
+                        <CollapsibleTrigger>
+                            Functionalities{" "}
+                            <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                        </CollapsibleTrigger>
+                    </SidebarGroupLabel>
+                    <CollapsibleContent>
+                        <SidebarGroupContent>
+                            <SidebarMenu>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild>
+                                        <a href="/dashboard/password-vaults">
+                                            <KeyRound className="size-4" />
+                                            Password vaults
                                         </a>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
