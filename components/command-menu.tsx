@@ -6,7 +6,8 @@ import {
   Settings, 
   LayoutDashboard,
   FileText,
-  Book
+  Book,
+  KeyRound
 } from "lucide-react"
 
 import {
@@ -102,6 +103,12 @@ export function CommandMenu() {
           >
             <Settings className="mr-2 h-4 w-4" />
             <span>Settings</span>
+          </CommandItem>
+          <CommandItem
+            onSelect={() => runCommand(() => router.push("/dashboard/password-vaults"))}
+          >
+            <KeyRound className="mr-2 h-4 w-4" />
+            <span>Password Vaults</span>
           </CommandItem>
         </CommandGroup>
 
