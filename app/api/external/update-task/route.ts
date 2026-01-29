@@ -2,23 +2,23 @@ import { db } from "@/db/drizzle";
 import { tasks } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { verifyNotebookApiKey } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
   try {
-    // 1. Security Check
-    const apiKey = req.headers.get("x-api-key");
-
-    if (apiKey !== process.env.PAGEFALL_API_KEY) {
-      return NextResponse.json(
-        { error: "Unauthorized: Invalid API Key" },
-        { status: 401 }
-      );
-    }
-
-    // 2. Get data from body
+    // 1. Get data from body first
     const body = await req.json();
     const { taskId, notebookId, ...updates } = body;
 
+    // 2. Security Check (Per-Notebook)
+    const apiKey = req.headers.get("x-api-key");
+    if (!notebookId || !(await verifyNotebookApiKey(apiKey, notebookId))) {
+      return NextResponse.json(
+        { error: "Unauthorized: Invalid API Key or Notebook ID" },
+        { status: 401 }
+      );
+    }
+    
     // 3. Validate required identifiers
     if (!taskId || !notebookId) {
       return NextResponse.json(

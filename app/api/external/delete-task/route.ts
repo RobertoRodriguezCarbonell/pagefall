@@ -2,24 +2,22 @@ import { db } from "@/db/drizzle";
 import { tasks } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { verifyNotebookApiKey } from "@/lib/api-auth";
 
 export async function DELETE(req: Request) {
   try {
-    // 1. Security Check
-    const apiKey = req.headers.get("x-api-key");
+    // 1. Get data from body first
+    const body = await req.json();
+    const { taskId, notebookId } = body;
 
-    if (apiKey !== process.env.PAGEFALL_API_KEY) {
+    // 2. Security Check (Per-Notebook)
+    const apiKey = req.headers.get("x-api-key");
+    if (!notebookId || !(await verifyNotebookApiKey(apiKey, notebookId))) {
       return NextResponse.json(
-        { error: "Unauthorized: Invalid API Key" },
+        { error: "Unauthorized: Invalid API Key or Notebook ID" },
         { status: 401 }
       );
     }
-
-    // 2. Get data from body or query params
-    // For DELETE requests, it's common to pass IDs in the body or URL
-    // We'll support JSON body here for consistency with other endpoints
-    const body = await req.json();
-    const { taskId, notebookId } = body;
 
     // 3. Validate required identifiers
     if (!taskId || !notebookId) {

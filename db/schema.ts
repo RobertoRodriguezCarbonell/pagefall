@@ -78,7 +78,8 @@ export const notebooks = pgTable("notebooks", {
   name: text('name').notNull(),
   userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
   createdAt: timestamp('created_at').$defaultFn(() => /* @__PURE__ */ new Date()),
-  updatedAt: timestamp('updated_at').$defaultFn(() => /* @__PURE__ */ new Date())
+  updatedAt: timestamp('updated_at').$defaultFn(() => /* @__PURE__ */ new Date()),
+  apiKey: text('api_key'), // 👈 Nuevo campo para la API Key
 });
 
 export const notebookRelations = relations(notebooks, ({ many, one }) => ({

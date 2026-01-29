@@ -2,20 +2,11 @@ import { db } from "@/db/drizzle";
 import { tasks } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { verifyNotebookApiKey } from "@/lib/api-auth";
 
 export async function GET(req: Request) {
   try {
-    // 1. Security Check
-    const apiKey = req.headers.get("x-api-key");
-
-    if (apiKey !== process.env.PAGEFALL_API_KEY) {
-      return NextResponse.json(
-        { error: "Unauthorized: Invalid API Key" },
-        { status: 401 }
-      );
-    }
-
-    // 2. Get the taskId from URL search params
+    // 1. Get the taskId from URL search params FIRST
     const { searchParams } = new URL(req.url);
     const taskId = searchParams.get("taskId");
 
@@ -26,15 +17,21 @@ export async function GET(req: Request) {
       );
     }
 
-    // 3. Fetch the task
+    // 2. We need to fetch the task FIRST to know its notebookId
     const task = await db.query.tasks.findFirst({
         where: eq(tasks.id, taskId),
     });
 
     if (!task) {
+        return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    // 3. Security Check (Per-Notebook)
+    const apiKey = req.headers.get("x-api-key");
+    if (!(await verifyNotebookApiKey(apiKey, task.notebookId))) {
       return NextResponse.json(
-        { error: "Task not found" },
-        { status: 404 }
+        { error: "Unauthorized: Invalid API Key for this resource" },
+        { status: 401 }
       );
     }
 

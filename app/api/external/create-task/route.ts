@@ -1,28 +1,27 @@
 import { db } from "@/db/drizzle";
 import { tasks } from "@/db/schema";
 import { NextResponse } from "next/server";
+import { verifyNotebookApiKey } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
   try {
-    // 1. Verificación de Seguridad
-    const apiKey = req.headers.get("x-api-key");
+    // 1. Obtener datos del cuerpo primero para saber el notebook
+    const body = await req.json();
+    const { title, notebookId, description, priority, dueDate, tag, status } = body;
 
-    if (apiKey !== process.env.PAGEFALL_API_KEY) {
+    // 2. Verificación de Seguridad con DB (Per-Notebook)
+    const apiKey = req.headers.get("x-api-key");
+    if (!notebookId || !(await verifyNotebookApiKey(apiKey, notebookId))) {
       return NextResponse.json(
-        { error: "Unauthorized: Invalid API Key" },
+        { error: "Unauthorized: Invalid API Key or Notebook ID" },
         { status: 401 }
       );
     }
 
-    // 2. Obtener datos del cuerpo de la petición
-    const body = await req.json();
-    // AÑADIDO: Extraemos 'status' del body
-    const { title, notebookId, description, priority, dueDate, tag, status } = body;
-
     // 3. Validaciones básicas
-    if (!title || !notebookId) {
+    if (!title) {
       return NextResponse.json(
-        { error: "Missing required fields: title or notebookId" },
+        { error: "Missing required fields: title" },
         { status: 400 }
       );
     }

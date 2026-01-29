@@ -2,30 +2,23 @@ import { db } from "@/db/drizzle";
 import { tasks } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { verifyNotebookApiKey } from "@/lib/api-auth";
 
 export async function GET(req: Request) {
   try {
-    // 1. Security Check
-    const apiKey = req.headers.get("x-api-key");
-
-    if (apiKey !== process.env.PAGEFALL_API_KEY) {
-      return NextResponse.json(
-        { error: "Unauthorized: Invalid API Key" },
-        { status: 401 }
-      );
-    }
-
-    // 2. Get notebookId from URL params
+    // 1. Get notebookId from URL params FIRST
     const { searchParams } = new URL(req.url);
     const notebookId = searchParams.get("notebookId");
 
-    if (!notebookId) {
+    // 2. Security Check (Per-Notebook)
+    const apiKey = req.headers.get("x-api-key");
+    if (!notebookId || !(await verifyNotebookApiKey(apiKey, notebookId))) {
       return NextResponse.json(
-        { error: "Missing required parameter: notebookId" },
-        { status: 400 }
+        { error: "Unauthorized: Invalid API Key or Notebook ID" },
+        { status: 401 }
       );
     }
-
+    
     // 3. Fetch tasks
     const notebookTasks = await db
       .select()
