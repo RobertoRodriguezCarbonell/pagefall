@@ -4,6 +4,16 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -40,6 +50,9 @@ export function NotebookKeyManager({ notebookId, notebookName }: NotebookKeyMana
     // Created Key Modal
     const [createdKey, setCreatedKey] = useState<string | null>(null);
     const [isCreatedDialogOpen, setIsCreatedDialogOpen] = useState(false);
+
+    // Delete Confirmation State
+    const [keyToDelete, setKeyToDelete] = useState<string | null>(null);
 
     useEffect(() => {
         loadKeys();
@@ -78,18 +91,30 @@ export function NotebookKeyManager({ notebookId, notebookName }: NotebookKeyMana
     };
 
     const handleDeleteKey = async (id: string) => {
-        if (!confirm("Are you sure? This action cannot be undone.")) return;
+        // Find the key name for the success message if needed, though 'Key deleted' is fine too
+        const keyName = keys.find(k => k.id === id)?.name || "API Key";
         
-        const originalKeys = [...keys];
-        setKeys(keys.filter(k => k.id !== id)); // Optimistic update
+        // Optimistic UI updates can be tricky with toast promises if we revert, 
+        // so let's stick to standard flow: Loading Toast -> Success/Error Toast -> Update State
+        
+        setKeyToDelete(null); // Close dialog immediately
 
-        const result = await deleteNotebookApiKey(id);
-        if (!result.success) {
-            setKeys(originalKeys); // Revert
-            toast.error("Failed to delete key");
-        } else {
-            toast.success("Key deleted");
-        }
+        const promise = deleteNotebookApiKey(id);
+
+        toast.promise(promise, {
+            loading: 'Deleting API token...',
+            success: (result) => {
+                if (result.success) {
+                    setKeys(prev => prev.filter(k => k.id !== id));
+                    return `API Key "${keyName}" deleted`;
+                } else {
+                    throw new Error(result.error);
+                }
+            },
+            error: (err) => {
+                return typeof err === 'string' ? err : 'Failed to delete API Key';
+            }
+        });
     };
 
     const copyToClipboard = (text: string) => {
@@ -172,6 +197,27 @@ export function NotebookKeyManager({ notebookId, notebookName }: NotebookKeyMana
                     </div>
                 </DialogContent>
             </Dialog>
+            
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={!!keyToDelete} onOpenChange={(open) => !open && setKeyToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. Any external services using this key will immediately lose access.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={() => keyToDelete && handleDeleteKey(keyToDelete)}
+                        >
+                            Delete Key
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             {/* Keys Table */}
             <div className="border rounded-md">
@@ -219,7 +265,7 @@ export function NotebookKeyManager({ notebookId, notebookName }: NotebookKeyMana
                                             variant="ghost" 
                                             size="icon" 
                                             className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                            onClick={() => handleDeleteKey(key.id)}
+                                            onClick={() => setKeyToDelete(key.id)}
                                         >
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
