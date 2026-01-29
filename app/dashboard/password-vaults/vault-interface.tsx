@@ -68,23 +68,24 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import { createVaultGroup, createVaultEntry, updateVaultEntry, deleteVaultEntry } from "@/server/vaults"
 
 // Types
-interface PasswordGroup {
-  id: string
-  name: string
-  icon?: React.ReactNode
-}
-
-interface PasswordEntry {
+export interface PasswordEntry {
   id: string
   groupId: string
   title: string
   username: string
   password: string
-  website?: string
-  notes?: string
-  createdAt: Date
+  website?: string | null
+  notes?: string | null
+  createdAt?: Date | null
+}
+
+export interface PasswordGroup {
+  id: string
+  name: string
+  entries: PasswordEntry[]
 }
 
 interface PasswordGenerationSettings {
@@ -95,47 +96,18 @@ interface PasswordGenerationSettings {
   useSymbols: boolean
 }
 
-// Mock Data
-const MOCK_GROUPS: PasswordGroup[] = [
-  { id: "1", name: "Personal" },
-  { id: "2", name: "Work" },
-  { id: "3", name: "Social Media" },
-  { id: "4", name: "Finance" },
-]
+interface VaultInterfaceProps {
+    initialGroups: PasswordGroup[];
+}
 
-const MOCK_ENTRIES: PasswordEntry[] = [
-  {
-    id: "1",
-    groupId: "3",
-    title: "Facebook",
-    username: "roberto.rc",
-    password: "password123",
-    website: "https://facebook.com",
-    createdAt: new Date(),
-  },
-  {
-    id: "2",
-    groupId: "1",
-    title: "Netflix",
-    username: "rob@gmail.com",
-    password: "secureUser1!",
-    website: "https://netflix.com",
-    createdAt: new Date(),
-  },
-  {
-    id: "3",
-    groupId: "2",
-    title: "AWS Console",
-    username: "admin-root",
-    password: "complexPasswordHash#",
-    website: "https://aws.amazon.com",
-    createdAt: new Date(),
-  },
-]
-
-export function VaultInterface() {
-  const [groups, setGroups] = useState<PasswordGroup[]>(MOCK_GROUPS)
-  const [entries, setEntries] = useState<PasswordEntry[]>(MOCK_ENTRIES)
+export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
+  const [groups, setGroups] = useState<PasswordGroup[]>(initialGroups)
+  // Flatten initial entries for easier management, or derive them?
+  // Let's keep a synchronized state of all entries for easier filtering
+  const [entries, setEntries] = useState<PasswordEntry[]>(
+      initialGroups.flatMap(g => g.entries)
+  )
+  
   const [selectedGroupId, setSelectedGroupId] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
@@ -161,6 +133,11 @@ export function VaultInterface() {
   // Toggle Password Visibility State (per entry id)
   const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({})
 
+  // Loading states
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [isSavingEntry, setIsSavingEntry] = useState(false);
+  const [isDeletingEntry, setIsDeletingEntry] = useState(false);
+
   const filteredEntries = entries.filter((entry) => {
     const matchesGroup = selectedGroupId === "all" || entry.groupId === selectedGroupId
     const matchesSearch = 
@@ -169,46 +146,116 @@ export function VaultInterface() {
     return matchesGroup && matchesSearch
   })
 
-  const handleAddGroup = () => {
+  const handleAddGroup = async () => {
     if (!newGroupName.trim()) return
-    const newGroup: PasswordGroup = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: newGroupName,
+    setIsCreatingGroup(true);
+    try {
+        const result = await createVaultGroup(newGroupName);
+        if (result.success && result.group) {
+            const newGroup: PasswordGroup = { ...result.group, entries: [] };
+            setGroups([...groups, newGroup]);
+            setNewGroupName("");
+            setIsAddGroupOpen(false);
+            toast.success("Group created successfully");
+        } else {
+            toast.error(result.error || "Failed to create group");
+        }
+    } catch {
+        toast.error("Failed to create group");
+    } finally {
+        setIsCreatingGroup(false);
     }
-    setGroups([...groups, newGroup])
-    setNewGroupName("")
-    setIsAddGroupOpen(false)
-    toast.success("Group created successfully")
   }
 
-  const handleSaveEntry = () => {
+  const handleSaveEntry = async () => {
     if (!entryForm.title || !entryForm.password || !entryForm.username) {
       toast.error("Please fill in required fields")
       return
     }
 
-    if (editingEntry) {
-      setEntries(entries.map(e => e.id === editingEntry.id ? { ...e, ...entryForm } as PasswordEntry : e))
-      toast.success("Password updated")
-    } else {
-      const newEntry: PasswordEntry = {
-        ...(entryForm as PasswordEntry),
-        id: Math.random().toString(36).substr(2, 9),
-        groupId: selectedGroupId === "all" ? groups[0].id : selectedGroupId,
-        createdAt: new Date(),
-      }
-      setEntries([...entries, newEntry])
-      toast.success("Password added")
+    // Default to first group if "all" is selected or no group selected
+    const targetGroupId = entryForm.groupId || (selectedGroupId === 'all' ? groups[0]?.id : selectedGroupId);
+    if (!targetGroupId) {
+         toast.error("Please create a group first");
+         return;
     }
-    setIsAddEntryOpen(false)
-    setEditingEntry(null)
-    setEntryForm({})
+
+    setIsSavingEntry(true);
+
+    try {
+        if (editingEntry) {
+            const result = await updateVaultEntry(editingEntry.id, {
+                title: entryForm.title,
+                username: entryForm.username,
+                password: entryForm.password,
+                website: entryForm.website || "",
+                notes: entryForm.notes || "",
+                groupId: entryForm.groupId || editingEntry.groupId // allow moving groups if UI supported it
+            });
+
+            if (result.success && result.entry) {
+                // Should we update the groups state too? 
+                // Currently 'entries' is what drives the list.
+                // But if we add logic that relies on groups.entries...
+                
+                const updated = result.entry;
+                 // Fix types mismatch handling (Date vs string - Drizzle returns Dates)
+                const safeEntry = { 
+                    ...updated, 
+                    website: updated.website || undefined, 
+                    notes: updated.notes || undefined 
+                } as unknown as PasswordEntry;
+
+
+                setEntries(entries.map(e => e.id === editingEntry.id ? safeEntry : e))
+                toast.success("Password updated")
+                setIsAddEntryOpen(false)
+                setEditingEntry(null)
+                setEntryForm({})
+            } else {
+                toast.error(result.error || "Failed to update entry");
+            }
+        } else {
+            const result = await createVaultEntry({
+                groupId: targetGroupId,
+                title: entryForm.title,
+                username: entryForm.username,
+                password: entryForm.password,
+                website: entryForm.website || undefined,
+                notes: entryForm.notes || undefined,
+            });
+
+            if (result.success && result.entry) {
+                const newEntry = result.entry as unknown as PasswordEntry;
+                setEntries([...entries, newEntry]);
+                toast.success("Password added");
+                setIsAddEntryOpen(false)
+                setEntryForm({})
+            } else {
+                toast.error(result.error || "Failed to create entry");
+            }
+        }
+    } finally {
+        setIsSavingEntry(false);
+    }
   }
 
-  const handleDeleteEntry = (id: string) => {
-    setEntries(entries.filter(e => e.id !== id))
-    toast.success("Password deleted")
+  const handleDeleteEntry = async (id: string) => {
+    setIsDeletingEntry(true);
+    try {
+        const result = await deleteVaultEntry(id);
+        if (result.success) {
+            setEntries(entries.filter(e => e.id !== id))
+            toast.success("Password deleted")
+            setEntryToDelete(null);
+        } else {
+            toast.error(result.error || "Failed to delete entry");
+        }
+    } finally {
+        setIsDeletingEntry(false);
+    }
   }
+
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text)

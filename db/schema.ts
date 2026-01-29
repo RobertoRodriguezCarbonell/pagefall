@@ -199,6 +199,40 @@ export const taskRelations = relations(tasks, ({ one }) => ({
   })
 }));
 
+export const vaultGroups = pgTable("vault_groups", {
+    id: text('id').primaryKey().default(sql`gen_random_uuid()`),
+    name: text('name').notNull(),
+    userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at').$defaultFn(() => /* @__PURE__ */ new Date()),
+});
+
+export const vaultGroupRelations = relations(vaultGroups, ({ one, many }) => ({
+    user: one(user, {
+        fields: [vaultGroups.userId],
+        references: [user.id]
+    }),
+    entries: many(vaultEntries)
+}));
+
+export const vaultEntries = pgTable("vault_entries", {
+    id: text('id').primaryKey().default(sql`gen_random_uuid()`),
+    groupId: text('group_id').notNull().references(() => vaultGroups.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    username: text('username').notNull(),
+    password: text('password').notNull(), // Encrypted
+    website: text('website'),
+    notes: text('notes'),
+    createdAt: timestamp('created_at').$defaultFn(() => /* @__PURE__ */ new Date()),
+    updatedAt: timestamp('updated_at').$defaultFn(() => /* @__PURE__ */ new Date()).$onUpdate(() => /* @__PURE__ */ new Date()),
+});
+
+export const vaultEntryRelations = relations(vaultEntries, ({ one }) => ({
+    group: one(vaultGroups, {
+        fields: [vaultEntries.groupId],
+        references: [vaultGroups.id]
+    })
+}));
+
 export type Task = typeof tasks.$inferSelect;
 export type InsertTask = typeof tasks.$inferInsert;
 
@@ -208,6 +242,7 @@ export const userRelations = relations(user, ({ many, one }) => ({
   notebooks: many(notebooks),
   settings: one(settings),
   comments: many(comments),
+  vaultGroups: many(vaultGroups),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -224,4 +259,4 @@ export const accountRelations = relations(account, ({ one }) => ({
   }),
 }));
 
-export const schema = { user, session, account, verification, notebooks, notes, tasks, notebookRelations, noteRelations, taskRelations, settings, settingsRelations, comments, commentRelations, userRelations, sessionRelations, accountRelations, apiKeys, apiKeyRelations };
+export const schema = { user, session, account, verification, notebooks, notes, tasks, notebookRelations, noteRelations, taskRelations, settings, settingsRelations, comments, commentRelations, userRelations, sessionRelations, accountRelations, apiKeys, apiKeyRelations, vaultGroups, vaultGroupRelations, vaultEntries, vaultEntryRelations };
