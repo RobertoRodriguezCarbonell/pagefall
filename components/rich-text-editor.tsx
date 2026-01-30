@@ -154,9 +154,10 @@ interface RichTextEditorProps {
   ) => void;
   onTextSelection?: (text: string, position: { top: number; left: number; placement?: 'top' | 'bottom' }, activeStyles?: Record<string, boolean>, noteId?: string, selectionRange?: { from: number; to: number }) => void;
   onCommentClick?: (commentId: string) => void;
+  readOnly?: boolean;
 }
 
-const RichTextEditor = ({ content, noteId, notebookId, noteTitle, className, comments = [], showComments = false, onEditorReady, onTextSelection, onCommentClick }: RichTextEditorProps) => {
+const RichTextEditor = ({ content, noteId, notebookId, noteTitle, className, comments = [], showComments = false, onEditorReady, onTextSelection, onCommentClick, readOnly = false }: RichTextEditorProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [pdfFileName, setPdfFileName] = useState(noteTitle || 'note');
   const [hasSuggestions, setHasSuggestions] = useState(false);
@@ -255,8 +256,8 @@ const RichTextEditor = ({ content, noteId, notebookId, noteTitle, className, com
       }),
     ],
     immediatelyRender: false,
-    autofocus: true,
-    editable: true,
+    autofocus: !readOnly,
+    editable: !readOnly,
     injectCSS: false,
     onUpdate: ({ editor }) => {
       if (noteId) {

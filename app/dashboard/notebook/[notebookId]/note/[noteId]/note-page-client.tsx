@@ -27,9 +27,10 @@ interface NotePageClientProps {
             name: string;
         };
     } | null;
+    readOnly?: boolean;
 }
 
-export default function NotePageClient({ note }: NotePageClientProps) {
+export default function NotePageClient({ note, readOnly = false }: NotePageClientProps) {
     const [insertContentFn, setInsertContentFn] = useState<((text: string) => void) | null>(null);
     const [replaceContentFn, setReplaceContentFn] = useState<((text: string) => void) | null>(null);
     const [getEditorHTMLFn, setGetEditorHTMLFn] = useState<(() => string) | null>(null);
@@ -198,6 +199,7 @@ export default function NotePageClient({ note }: NotePageClientProps) {
                             onEditorReady={handleEditorReady}
                             onTextSelection={handleTextSelection}
                             onCommentClick={handleCommentClick}
+                            readOnly={readOnly}
                         />
                     </div>
                 </div>
