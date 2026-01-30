@@ -50,6 +50,9 @@ export default function NoteCard({ note }: NotebookCardProps) {
                 toast.success("Note deleted successfully");
                 setIsOpen(false);
                 router.refresh();
+            } else {
+                toast.error(response.message || "Failed to delete note");
+                setIsOpen(false);
             }
         } catch {
             toast.error("Failed to delete note");

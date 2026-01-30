@@ -22,6 +22,18 @@ const page = async ({ params }: PageProps) => {
     }
 
     const members = result.members || [];
+    
+    // Transform dates to ensure they are strictly Date objects, handling potential nulls
+    const notebookData = {
+        ...result.notebook,
+        createdAt: result.notebook.createdAt || new Date()
+    };
+    
+    // Transform members similarly
+    const membersData = members.map(m => ({
+        ...m,
+        createdAt: m.createdAt || new Date()
+    }));
 
     return (
         <PageWrapper breadcrumbs={[
@@ -30,8 +42,8 @@ const page = async ({ params }: PageProps) => {
             { label: "Settings", href: `/dashboard/notebook/${notebookId}/settings` },
         ]}>
             <NotebookSettingsInterface 
-                notebook={result.notebook} 
-                initialMembers={members} 
+                notebook={notebookData} 
+                initialMembers={membersData} 
             />
         </PageWrapper>
     )
