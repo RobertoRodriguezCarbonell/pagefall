@@ -42,6 +42,118 @@ async function checkVaultAccess(groupId: string, userId: string, permission?: 'c
 }
 
 
+// Delete Vault Group
+export const deleteVaultGroup = async (vaultId: string) => {
+    const session = await auth.api.getSession({
+        headers: await headers()
+    });
+    
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+
+    const access = await checkVaultAccess(vaultId, session.user.id);
+    if (!access.isOwner) return { success: false, error: "Only the owner can delete the vault" };
+
+    try {
+        await db.delete(vaultGroups).where(eq(vaultGroups.id, vaultId));
+        revalidatePath("/dashboard/password-vaults");
+        return { success: true };
+    } catch (error) {
+        console.error("Delete vault error:", error);
+        return { success: false, error: "Failed to delete vault" };
+    }
+}
+
+// Settings & Members Management
+
+export const getVaultSettingsData = async (vaultId: string) => {
+    const session = await auth.api.getSession({
+        headers: await headers()
+    });
+    
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+
+    const access = await checkVaultAccess(vaultId, session.user.id);
+    if (!access.isOwner) return { success: false, error: "Unauthorized" };
+
+    try {
+        const group = await db.query.vaultGroups.findFirst({
+            where: eq(vaultGroups.id, vaultId),
+        });
+
+        if (!group) return { success: false, error: "Vault not found" };
+
+        const members = await db.query.vaultMembers.findMany({
+            where: eq(vaultMembers.vaultGroupId, vaultId),
+            with: {
+                user: true // Get user details
+            }
+        });
+
+        return { success: true, group, members };
+    } catch (error) {
+        console.error("Get settings error:", error);
+        return { success: false, error: "Failed to fetch settings" };
+    }
+}
+
+export const updateMemberPermissions = async (memberId: string, permissions: {
+    canEdit: boolean;
+    canCreate: boolean;
+    canDelete: boolean;
+}) => {
+    const session = await auth.api.getSession({
+        headers: await headers()
+    });
+    
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+
+    // Need to find the vault group ID from the member record to check ownership
+    const member = await db.query.vaultMembers.findFirst({
+        where: eq(vaultMembers.id, memberId),
+    });
+
+    if (!member) return { success: false, error: "Member not found" };
+
+    const access = await checkVaultAccess(member.vaultGroupId, session.user.id);
+    if (!access.isOwner) return { success: false, error: "Only the owner can manage permissions" };
+
+    try {
+        await db.update(vaultMembers)
+            .set(permissions)
+            .where(eq(vaultMembers.id, memberId));
+
+        revalidatePath(`/dashboard/password-vaults/${member.vaultGroupId}/settings`);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: "Failed to update permissions" };
+    }
+}
+
+export const removeVaultMember = async (memberId: string) => {
+    const session = await auth.api.getSession({
+        headers: await headers()
+    });
+    
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+
+    const member = await db.query.vaultMembers.findFirst({
+        where: eq(vaultMembers.id, memberId),
+    });
+
+    if (!member) return { success: false, error: "Member not found" };
+
+    const access = await checkVaultAccess(member.vaultGroupId, session.user.id);
+    if (!access.isOwner) return { success: false, error: "Only the owner can remove members" };
+
+    try {
+        await db.delete(vaultMembers).where(eq(vaultMembers.id, memberId));
+        revalidatePath(`/dashboard/password-vaults/${member.vaultGroupId}/settings`);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: "Failed to remove member" };
+    }
+}
+
 // Initial data fetching
 export const getVaultData = async () => {
     const session = await auth.api.getSession({

@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState } from "react"
+import Link from "next/link"
 import {
   Plus,
   Folder,
@@ -475,10 +476,11 @@ export function VaultInterface({ initialGroups, initialInvitations }: VaultInter
                     <span className="truncate">{group.name}</span>
                 </Button>
                  {!group.isShared && (
+                  <div className="flex items-center ml-1 opacity-0 group-hover/item:opacity-100 transition-opacity focus-within:opacity-100">
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 ml-1 text-muted-foreground opacity-0 group-hover/item:opacity-100 transition-opacity focus:opacity-100"
+                        className="h-8 w-8 text-muted-foreground"
                         onClick={(e) => {
                             e.stopPropagation();
                             openShareDialog(group);
@@ -487,6 +489,21 @@ export function VaultInterface({ initialGroups, initialInvitations }: VaultInter
                     >
                         <Share2 className="h-4 w-4" />
                     </Button>
+                    <Link href={`/dashboard/password-vaults/${group.id}/settings`} passHref>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                // Navigation handled by Link, but stop prop prevents group selection
+                            }}
+                            title="Settings"
+                        >
+                            <Settings className="h-4 w-4" />
+                        </Button>
+                    </Link>
+                  </div>
                  )}
               </div>
             ))}
