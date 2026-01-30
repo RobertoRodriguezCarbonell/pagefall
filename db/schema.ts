@@ -233,6 +233,36 @@ export const vaultEntryRelations = relations(vaultEntries, ({ one }) => ({
     })
 }));
 
+export const vaultMembers = pgTable("vault_members", {
+    id: text('id').primaryKey().default(sql`gen_random_uuid()`),
+    vaultGroupId: text('vault_group_id').notNull().references(() => vaultGroups.id, { onDelete: 'cascade' }),
+    userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    status: text('status').notNull().default('pending'), // 'pending', 'active'
+    
+    // Permissions
+    canEdit: boolean('can_edit').default(false).notNull(),
+    canCreate: boolean('can_create').default(false).notNull(),
+    canDelete: boolean('can_delete').default(false).notNull(),
+
+    invitedBy: text('invited_by').notNull().references(() => user.id),
+    createdAt: timestamp('created_at').$defaultFn(() => /* @__PURE__ */ new Date()),
+});
+
+export const vaultMemberRelations = relations(vaultMembers, ({ one }) => ({
+    group: one(vaultGroups, {
+        fields: [vaultMembers.vaultGroupId],
+        references: [vaultGroups.id]
+    }),
+    user: one(user, {
+        fields: [vaultMembers.userId],
+        references: [user.id]
+    }),
+    inviter: one(user, {
+        fields: [vaultMembers.invitedBy],
+        references: [user.id]
+    })
+}));
+
 export type Task = typeof tasks.$inferSelect;
 export type InsertTask = typeof tasks.$inferInsert;
 
@@ -259,4 +289,4 @@ export const accountRelations = relations(account, ({ one }) => ({
   }),
 }));
 
-export const schema = { user, session, account, verification, notebooks, notes, tasks, notebookRelations, noteRelations, taskRelations, settings, settingsRelations, comments, commentRelations, userRelations, sessionRelations, accountRelations, apiKeys, apiKeyRelations, vaultGroups, vaultGroupRelations, vaultEntries, vaultEntryRelations };
+export const schema = { user, session, account, verification, notebooks, notes, tasks, notebookRelations, noteRelations, taskRelations, settings, settingsRelations, comments, commentRelations, userRelations, sessionRelations, accountRelations, apiKeys, apiKeyRelations, vaultGroups, vaultGroupRelations, vaultEntries, vaultEntryRelations, vaultMembers, vaultMemberRelations };

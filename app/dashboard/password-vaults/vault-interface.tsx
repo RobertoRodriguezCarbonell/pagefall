@@ -24,6 +24,10 @@ import {
   KeyRound,
   Share2,
   UserPlus,
+  Inbox,
+  Check,
+  X,
+  Users
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -70,7 +74,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
-import { createVaultGroup, createVaultEntry, updateVaultEntry, deleteVaultEntry } from "@/server/vaults"
+import { 
+    createVaultGroup, 
+    createVaultEntry, 
+    updateVaultEntry, 
+    deleteVaultEntry,
+    inviteUserToVault,
+    respondToInvitation
+} from "@/server/vaults"
 
 // Types
 export interface PasswordEntry {
@@ -88,6 +99,31 @@ export interface PasswordGroup {
   id: string
   name: string
   entries: PasswordEntry[]
+  isShared?: boolean
+  permissions?: {
+      canEdit: boolean;
+      canCreate: boolean;
+      canDelete: boolean;
+  }
+}
+
+export interface VaultInvitation {
+    id: string;
+    vaultGroupId: string;
+    userId: string;
+    invitedBy: string;
+    status: string;
+    canEdit: boolean;
+    canCreate: boolean;
+    canDelete: boolean;
+    createdAt: Date | null;
+    group: {
+        name: string;
+    };
+    inviter: {
+        name: string;
+        email: string;
+    };
 }
 
 interface PasswordGenerationSettings {
@@ -100,15 +136,17 @@ interface PasswordGenerationSettings {
 
 interface VaultInterfaceProps {
     initialGroups: PasswordGroup[];
+    initialInvitations: VaultInvitation[];
 }
 
-export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
+export function VaultInterface({ initialGroups, initialInvitations }: VaultInterfaceProps) {
   const [groups, setGroups] = useState<PasswordGroup[]>(initialGroups)
   // Flatten initial entries for easier management, or derive them?
   // Let's keep a synchronized state of all entries for easier filtering
   const [entries, setEntries] = useState<PasswordEntry[]>(
       initialGroups.flatMap(g => g.entries)
   )
+  const [invitations, setInvitations] = useState<VaultInvitation[]>(initialInvitations)
   
   const [selectedGroupId, setSelectedGroupId] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
@@ -139,21 +177,31 @@ export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [isSavingEntry, setIsSavingEntry] = useState(false);
   const [isDeletingEntry, setIsDeletingEntry] = useState(false);
-
+  
   // Share Dialog State
   const [isShareGroupOpen, setIsShareGroupOpen] = useState(false)
   const [groupToShare, setGroupToShare] = useState<PasswordGroup | null>(null)
   const [shareEmail, setShareEmail] = useState("")
-  const [sharePermission, setSharePermission] = useState("read")
+  const [sharePermissions, setSharePermissions] = useState({
+      canEdit: false,
+      canCreate: false,
+      canDelete: false
+  })
+  const [isSharing, setIsSharing] = useState(false)
 
   const filteredEntries = entries.filter((entry) => {
     const matchesGroup = selectedGroupId === "all" || entry.groupId === selectedGroupId
     const matchesSearch = 
-      entry.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      entry.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
       entry.username.toLowerCase().includes(searchQuery.toLowerCase())
     return matchesGroup && matchesSearch
   })
 
+  // Derive permissions for current view
+  const currentGroup = groups.find(g => g.id === selectedGroupId)
+  const canCreateInCurrent = !currentGroup || !currentGroup.isShared || (currentGroup.isShared && currentGroup.permissions?.canCreate);
+  // For 'all' view, we might want to restrict creation to owned groups only or force selecting a group
+  
   const handleAddGroup = async () => {
     if (!newGroupName.trim()) return
     setIsCreatingGroup(true);
@@ -178,18 +226,62 @@ export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
   const openShareDialog = (group: PasswordGroup) => {
     setGroupToShare(group)
     setShareEmail("")
-    setSharePermission("read")
+    setSharePermissions({
+        canEdit: false,
+        canCreate: false,
+        canDelete: false
+    })
     setIsShareGroupOpen(true)
   }
 
-  const handleShareSubmit = () => {
-    if(!shareEmail) {
+  const handleShareSubmit = async () => {
+    if(!shareEmail || !groupToShare) {
         toast.error("Please enter an email")
         return;
     }
-    // Simulation only
-    toast.success(`Invite sent to ${shareEmail}`)
-    setIsShareGroupOpen(false)
+    
+    setIsSharing(true)
+    try {
+        const result = await inviteUserToVault({
+            vaultGroupId: groupToShare.id,
+            email: shareEmail,
+            permissions: sharePermissions
+        })
+
+        if (result.success) {
+            toast.success(`Invite sent to ${shareEmail}`)
+            setIsShareGroupOpen(false)
+        } else {
+            toast.error(result.error || "Failed to share vault")
+        }
+    } catch (e) {
+        toast.error("An unexpected error occurred")
+    } finally {
+        setIsSharing(false)
+    }
+  }
+
+  const handleRespondInvitation = async (id: string, accept: boolean) => {
+      try {
+          const result = await respondToInvitation(id, accept);
+          if (result.success) {
+              setInvitations(invitations.filter(i => i.id !== id));
+              if (accept) {
+                  toast.success("Invitation accepted. The vault will appear shortly.");
+                  // Ideally we would fetch the new vault here or revalidate logic handles it on refresh
+                  // Since 'groups' is local state, we might need to refresh the page or setup a mechanism 
+                  // to fetch the new group structure.
+                  // For now, let's ask user to refresh or trigger a reload
+                  window.location.reload(); 
+              } else {
+                  toast.success("Invitation rejected");
+              }
+          } else {
+              toast.error(result.error || "Failed to respond");
+          }
+      } catch (e) {
+          toast.error("Failed to respond");
+      }
   }
 
   const handleSaveEntry = async () => {
@@ -199,7 +291,9 @@ export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
     }
 
     // Default to first group if "all" is selected or no group selected
-    const targetGroupId = entryForm.groupId || (selectedGroupId === 'all' ? groups[0]?.id : selectedGroupId);
+    // Better logic: If "all", check if we have any groups. Prioritize owned groups.
+    const targetGroupId = entryForm.groupId || (selectedGroupId !== 'all' ? selectedGroupId : groups[0]?.id);
+    
     if (!targetGroupId) {
          toast.error("Please create a group first");
          return;
@@ -215,17 +309,12 @@ export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
                 password: entryForm.password,
                 website: entryForm.website || "",
                 notes: entryForm.notes || "",
-                groupId: entryForm.groupId || editingEntry.groupId // allow moving groups if UI supported it
+                groupId: entryForm.groupId || editingEntry.groupId 
             });
 
             if (result.success && result.entry) {
-                // Should we update the groups state too? 
-                // Currently 'entries' is what drives the list.
-                // But if we add logic that relies on groups.entries...
-                
                 const updated = result.entry;
-                 // Fix types mismatch handling (Date vs string - Drizzle returns Dates)
-                const safeEntry = { 
+                 const safeEntry = { 
                     ...updated, 
                     website: updated.website || undefined, 
                     notes: updated.notes || undefined 
@@ -334,6 +423,38 @@ export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="flex-1 overflow-y-auto px-2">
+          {invitations.length > 0 && (
+              <div className="mb-4 space-y-2">
+                  <div className="flex items-center gap-2 px-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      <Inbox className="h-3 w-3" /> Invitations
+                  </div>
+                  {invitations.map(invite => (
+                      <div key={invite.id} className="p-2 rounded-lg bg-muted/50 text-sm border space-y-2">
+                          <div className="font-medium truncate">{invite.group.name}</div>
+                          <div className="text-xs text-muted-foreground truncate">from {invite.inviter.name}</div>
+                          <div className="flex items-center gap-2">
+                              <Button 
+                                size="sm" 
+                                className="h-7 w-full text-xs" 
+                                onClick={() => handleRespondInvitation(invite.id, true)}
+                              >
+                                  Accept
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="h-7 w-full text-xs" 
+                                onClick={() => handleRespondInvitation(invite.id, false)}
+                              >
+                                  Reject
+                              </Button>
+                          </div>
+                      </div>
+                  ))}
+                  <div className="h-px bg-border my-2" />
+              </div>
+          )}
+
           <div className="space-y-1">
             <Button
               variant={selectedGroupId === "all" ? "secondary" : "ghost"}
@@ -344,27 +465,29 @@ export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
               All Items
             </Button>
             {groups.map((group) => (
-              <div key={group.id} className="flex items-center group/item w-full"> 
+              <div key={group.id} className="flex items-center group/item w-full">
                 <Button
                     variant={selectedGroupId === group.id ? "secondary" : "ghost"}
                     className="flex-1 justify-start gap-2 truncate"
                     onClick={() => setSelectedGroupId(group.id)}
                 >
-                    <Folder className="h-4 w-4 shrink-0" />
+                    {group.isShared ? <Users className="h-4 w-4 shrink-0 text-blue-500" /> : <Folder className="h-4 w-4 shrink-0" />}
                     <span className="truncate">{group.name}</span>
                 </Button>
-                 <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 ml-1 text-muted-foreground opacity-0 group-hover/item:opacity-100 transition-opacity focus:opacity-100"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        openShareDialog(group);
-                    }}
-                    title="Share Group"
-                >
-                    <Share2 className="h-4 w-4" />
-                </Button>
+                 {!group.isShared && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 ml-1 text-muted-foreground opacity-0 group-hover/item:opacity-100 transition-opacity focus:opacity-100"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            openShareDialog(group);
+                        }}
+                        title="Share Group"
+                    >
+                        <Share2 className="h-4 w-4" />
+                    </Button>
+                 )}
               </div>
             ))}
           </div>
@@ -434,11 +557,13 @@ export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
                   setEntryForm({})
                 }
               }}>
-                <DialogTrigger asChild>
-                  <Button className="gap-2">
-                    <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Add Password</span>
-                  </Button>
-                </DialogTrigger>
+                {canCreateInCurrent && (
+                    <DialogTrigger asChild>
+                    <Button className="gap-2">
+                        <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Add Password</span>
+                    </Button>
+                    </DialogTrigger>
+                )}
                 <DialogContent className="sm:max-w-[425px]">
                   <DialogHeader>
                     <DialogTitle>{editingEntry ? "Edit Password" : "New Password"}</DialogTitle>
@@ -492,7 +617,7 @@ export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
                          <Dialog open={isGeneratorSettingsOpen} onOpenChange={setIsGeneratorSettingsOpen}>
                             <DialogTrigger asChild>
                                 <Button size="icon" variant="outline" type="button">
-                                   <Settings className="h-4 w-4" />
+                                    <Settings className="h-4 w-4" />
                                 </Button>
                             </DialogTrigger>
                             <DialogContent>
@@ -511,7 +636,7 @@ export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
                                             type="range" 
                                             min="8" 
                                             max="64" 
-                                            value={generatorSettings.length} 
+                                            value={generatorSettings.length}
                                             onChange={(e) => setGeneratorSettings({...generatorSettings, length: parseInt(e.target.value)})}
                                             className="w-full accent-primary"
                                         />
@@ -519,9 +644,9 @@ export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
                                      <div className="grid gap-2">
                                         <div className="flex items-center gap-2">
                                             <input 
-                                                type="checkbox" 
-                                                id="uppercase" 
-                                                checked={generatorSettings.useUppercase} 
+                                                type="checkbox"
+                                                id="uppercase"
+                                                checked={generatorSettings.useUppercase}
                                                 onChange={(e) => setGeneratorSettings({...generatorSettings, useUppercase: e.target.checked})}
                                                 className="accent-primary h-4 w-4"
                                             />
@@ -529,9 +654,9 @@ export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <input 
-                                                type="checkbox" 
-                                                id="lowercase" 
-                                                checked={generatorSettings.useLowercase} 
+                                                type="checkbox"
+                                                id="lowercase"
+                                                checked={generatorSettings.useLowercase}
                                                 onChange={(e) => setGeneratorSettings({...generatorSettings, useLowercase: e.target.checked})}
                                                 className="accent-primary h-4 w-4"
                                             />
@@ -539,9 +664,9 @@ export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <input 
-                                                type="checkbox" 
-                                                id="numbers" 
-                                                checked={generatorSettings.useNumbers} 
+                                                type="checkbox"
+                                                id="numbers"
+                                                checked={generatorSettings.useNumbers}
                                                 onChange={(e) => setGeneratorSettings({...generatorSettings, useNumbers: e.target.checked})}
                                                 className="accent-primary h-4 w-4"
                                             />
@@ -549,9 +674,9 @@ export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <input 
-                                                type="checkbox" 
-                                                id="symbols" 
-                                                checked={generatorSettings.useSymbols} 
+                                                type="checkbox"
+                                                id="symbols"
+                                                checked={generatorSettings.useSymbols}
                                                 onChange={(e) => setGeneratorSettings({...generatorSettings, useSymbols: e.target.checked})}
                                                 className="accent-primary h-4 w-4"
                                             />
@@ -582,7 +707,9 @@ export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
                                 <SelectValue placeholder="Select a group" />
                             </SelectTrigger>
                             <SelectContent>
-                                {groups.map(g => (
+                                {groups
+                                    .filter(g => !g.isShared || (g.isShared && g.permissions?.canCreate))
+                                    .map(g => (
                                     <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
                                 ))}
                             </SelectContent>
@@ -605,19 +732,27 @@ export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
                     <KeyRound className="h-12 w-12 text-primary" />
                 </div>
                 <p>No passwords found in this group.</p>
-                <Button variant="outline" onClick={() => setIsAddEntryOpen(true)}>Add your first password</Button>
+                {canCreateInCurrent && (
+                     <Button variant="outline" onClick={() => setIsAddEntryOpen(true)}>Add your first password</Button>
+                )}
              </div>
           ) : (
             <div className={cn(
                 "grid gap-4",
                 viewMode === "grid" ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "grid-cols-1"
-            )}>
-              {filteredEntries.map((entry) => (
+              )}>
+              {filteredEntries.map((entry) => {
+                  const entryGroup = groups.find(g => g.id === entry.groupId);
+                  const canEdit = !entryGroup?.isShared || entryGroup.permissions?.canEdit;
+                  // For deletion: owner or canDelete
+                  const canDelete = !entryGroup?.isShared || entryGroup.permissions?.canDelete;
+
+                  return (
                 <Card key={entry.id} className="group hover:shadow-md transition-shadow duration-200">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <div className="flex items-center gap-2 overflow-hidden">
                         <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                             {entry.website ? <Globe className="h-4 w-4" /> : <Key className="h-4 w-4" />}
+                            {entry.website ? <Globe className="h-4 w-4" /> : <Key className="h-4 w-4" />}
                         </div>
                         <div className="flex flex-col overflow-hidden">
                             <CardTitle className="text-base truncate" title={entry.title}>
@@ -639,15 +774,19 @@ export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
                         <DropdownMenuItem onClick={() => copyToClipboard(entry.password, "Password")}>
                             <Key className="mr-2 h-4 w-4" /> Copy Password
                         </DropdownMenuItem>
-                         <DropdownMenuItem onClick={() => openEditDialog(entry)}>
-                           <Edit2 className="mr-2 h-4 w-4" /> Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                            className="text-destructive focus:text-destructive" 
-                            onClick={() => setEntryToDelete(entry.id)}
-                        >
-                           <Trash2 className="mr-2 h-4 w-4" /> Delete
-                        </DropdownMenuItem>
+                        {canEdit && (
+                            <DropdownMenuItem onClick={() => openEditDialog(entry)}>
+                                <Edit2 className="mr-2 h-4 w-4" /> Edit
+                            </DropdownMenuItem>
+                        )}
+                        {canDelete && (
+                            <DropdownMenuItem 
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => setEntryToDelete(entry.id)}
+                            >
+                               <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </CardHeader>
@@ -686,15 +825,15 @@ export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
                                 target="_blank" 
                                 rel="noreferrer" 
                                 className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 mt-2 transition-colors truncate"
-                             >
+                            >
                                 {entry.website.replace(/^https?:\/\//, '')}
                                 <Globe className="h-3 w-3" />
-                             </a>
+                            </a>
                         )}
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+              )})}
             </div>
           )}
         </CardContent>
@@ -705,7 +844,7 @@ export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the password entry for
+              This action cannot be undone. This will permanently delete the password entry for 
               <span className="font-semibold text-foreground"> "{entries.find(e => e.id === entryToDelete)?.title}"</span>.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -731,27 +870,78 @@ export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
                     <Label htmlFor="share-email">Email Address</Label>
                     <Input 
                         id="share-email" 
-                        placeholder="colleague@example.com" 
+                        placeholder="colleague@example.com"
                         value={shareEmail}
                         onChange={(e) => setShareEmail(e.target.value)}
                     />
                 </div>
-                 <div className="grid gap-2">
-                    <Label htmlFor="share-permission">Permission</Label>
-                    <Select value={sharePermission} onValueChange={setSharePermission}>
-                         <SelectTrigger>
-                            <SelectValue />
-                         </SelectTrigger>
-                         <SelectContent>
-                             <SelectItem value="read">Read Only</SelectItem>
-                             <SelectItem value="write">Read & Write</SelectItem>
-                         </SelectContent>
-                    </Select>
+                 <div className="grid gap-3">
+                    <Label>Permissions</Label>
+                    <div className="flex items-center space-x-2">
+                        <input 
+                            type="checkbox"
+                            id="p-view" 
+                            checked={true} 
+                            disabled 
+                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
+                        />
+                        <label
+                            htmlFor="p-view"
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                            View (Default)
+                        </label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <input 
+                            type="checkbox"
+                            id="p-create" 
+                            checked={sharePermissions.canCreate}
+                            onChange={(e) => setSharePermissions(p => ({...p, canCreate: e.target.checked, canEdit: e.target.checked || p.canEdit}))}
+                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
+                        />
+                         <label
+                            htmlFor="p-create"
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                            Create Items
+                        </label>
+                    </div>
+                     <div className="flex items-center space-x-2">
+                        <input 
+                            type="checkbox"
+                            id="p-edit" 
+                            checked={sharePermissions.canEdit}
+                            onChange={(e) => setSharePermissions(p => ({...p, canEdit: e.target.checked}))}
+                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
+                        />
+                         <label
+                            htmlFor="p-edit"
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                            Edit Items
+                        </label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <input 
+                            type="checkbox"
+                            id="p-delete" 
+                            checked={sharePermissions.canDelete}
+                            onChange={(e) => setSharePermissions(p => ({...p, canDelete: e.target.checked}))}
+                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
+                        />
+                         <label
+                            htmlFor="p-delete"
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                            Delete Items
+                        </label>
+                    </div>
                 </div>
             </div>
             <DialogFooter>
-                <Button onClick={handleShareSubmit}>
-                    <UserPlus className="mr-2 h-4 w-4" />
+                <Button onClick={handleShareSubmit} disabled={isSharing}>
+                    {isSharing ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
                     Share Vault
                 </Button>
             </DialogFooter>
