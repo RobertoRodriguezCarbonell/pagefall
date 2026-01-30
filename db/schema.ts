@@ -85,6 +85,7 @@ export const notebookRelations = relations(notebooks, ({ many, one }) => ({
   notes: many(notes),
   tasks: many(tasks),
   apiKeys: many(apiKeys),
+  members: many(notebookMembers), // Added members
   user: one(user, {
     fields: [notebooks.userId],
     references: [user.id]
@@ -263,6 +264,39 @@ export const vaultMemberRelations = relations(vaultMembers, ({ one }) => ({
     })
 }));
 
+export const notebookMembers = pgTable("notebook_members", {
+    id: text('id').primaryKey().default(sql`gen_random_uuid()`),
+    notebookId: text('notebook_id').notNull().references(() => notebooks.id, { onDelete: 'cascade' }),
+    userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    status: text('status').notNull().default('pending'), // 'pending', 'active'
+    
+    // Permissions - aligned with what makes sense for a notebook
+    // canEdit: modify notes
+    // canCreate: create new notes
+    // canDelete: delete notes
+    canEdit: boolean('can_edit').default(false).notNull(),
+    canCreate: boolean('can_create').default(false).notNull(),
+    canDelete: boolean('can_delete').default(false).notNull(),
+
+    invitedBy: text('invited_by').notNull().references(() => user.id),
+    createdAt: timestamp('created_at').$defaultFn(() => /* @__PURE__ */ new Date()),
+});
+
+export const notebookMemberRelations = relations(notebookMembers, ({ one }) => ({
+    notebook: one(notebooks, {
+        fields: [notebookMembers.notebookId],
+        references: [notebooks.id]
+    }),
+    user: one(user, {
+        fields: [notebookMembers.userId],
+        references: [user.id]
+    }),
+    inviter: one(user, {
+        fields: [notebookMembers.invitedBy],
+        references: [user.id]
+    })
+}));
+
 export type Task = typeof tasks.$inferSelect;
 export type InsertTask = typeof tasks.$inferInsert;
 
@@ -289,4 +323,4 @@ export const accountRelations = relations(account, ({ one }) => ({
   }),
 }));
 
-export const schema = { user, session, account, verification, notebooks, notes, tasks, notebookRelations, noteRelations, taskRelations, settings, settingsRelations, comments, commentRelations, userRelations, sessionRelations, accountRelations, apiKeys, apiKeyRelations, vaultGroups, vaultGroupRelations, vaultEntries, vaultEntryRelations, vaultMembers, vaultMemberRelations };
+export const schema = { user, session, account, verification, notebooks, notes, tasks, notebookRelations, noteRelations, taskRelations, settings, settingsRelations, comments, commentRelations, userRelations, sessionRelations, accountRelations, apiKeys, apiKeyRelations, vaultGroups, vaultGroupRelations, vaultEntries, vaultEntryRelations, vaultMembers, vaultMemberRelations, notebookMembers, notebookMemberRelations };
