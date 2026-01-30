@@ -22,6 +22,8 @@ import {
   Settings,
   RefreshCw,
   KeyRound,
+  Share2,
+  UserPlus,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -138,6 +140,12 @@ export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
   const [isSavingEntry, setIsSavingEntry] = useState(false);
   const [isDeletingEntry, setIsDeletingEntry] = useState(false);
 
+  // Share Dialog State
+  const [isShareGroupOpen, setIsShareGroupOpen] = useState(false)
+  const [groupToShare, setGroupToShare] = useState<PasswordGroup | null>(null)
+  const [shareEmail, setShareEmail] = useState("")
+  const [sharePermission, setSharePermission] = useState("read")
+
   const filteredEntries = entries.filter((entry) => {
     const matchesGroup = selectedGroupId === "all" || entry.groupId === selectedGroupId
     const matchesSearch = 
@@ -165,6 +173,23 @@ export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
     } finally {
         setIsCreatingGroup(false);
     }
+  }
+
+  const openShareDialog = (group: PasswordGroup) => {
+    setGroupToShare(group)
+    setShareEmail("")
+    setSharePermission("read")
+    setIsShareGroupOpen(true)
+  }
+
+  const handleShareSubmit = () => {
+    if(!shareEmail) {
+        toast.error("Please enter an email")
+        return;
+    }
+    // Simulation only
+    toast.success(`Invite sent to ${shareEmail}`)
+    setIsShareGroupOpen(false)
   }
 
   const handleSaveEntry = async () => {
@@ -319,15 +344,28 @@ export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
               All Items
             </Button>
             {groups.map((group) => (
-              <Button
-                key={group.id}
-                variant={selectedGroupId === group.id ? "secondary" : "ghost"}
-                className="w-full justify-start gap-2"
-                onClick={() => setSelectedGroupId(group.id)}
-              >
-                <Folder className="h-4 w-4" />
-                {group.name}
-              </Button>
+              <div key={group.id} className="flex items-center group/item w-full"> 
+                <Button
+                    variant={selectedGroupId === group.id ? "secondary" : "ghost"}
+                    className="flex-1 justify-start gap-2 truncate"
+                    onClick={() => setSelectedGroupId(group.id)}
+                >
+                    <Folder className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{group.name}</span>
+                </Button>
+                 <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 ml-1 text-muted-foreground opacity-0 group-hover/item:opacity-100 transition-opacity focus:opacity-100"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        openShareDialog(group);
+                    }}
+                    title="Share Group"
+                >
+                    <Share2 className="h-4 w-4" />
+                </Button>
+              </div>
             ))}
           </div>
         </CardContent>
@@ -679,6 +717,46 @@ export function VaultInterface({ initialGroups }: VaultInterfaceProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={isShareGroupOpen} onOpenChange={setIsShareGroupOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Share "{groupToShare?.name}"</DialogTitle>
+                <DialogDescription>
+                    Invite collaborators to this password vault.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                    <Label htmlFor="share-email">Email Address</Label>
+                    <Input 
+                        id="share-email" 
+                        placeholder="colleague@example.com" 
+                        value={shareEmail}
+                        onChange={(e) => setShareEmail(e.target.value)}
+                    />
+                </div>
+                 <div className="grid gap-2">
+                    <Label htmlFor="share-permission">Permission</Label>
+                    <Select value={sharePermission} onValueChange={setSharePermission}>
+                         <SelectTrigger>
+                            <SelectValue />
+                         </SelectTrigger>
+                         <SelectContent>
+                             <SelectItem value="read">Read Only</SelectItem>
+                             <SelectItem value="write">Read & Write</SelectItem>
+                         </SelectContent>
+                    </Select>
+                </div>
+            </div>
+            <DialogFooter>
+                <Button onClick={handleShareSubmit}>
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Share Vault
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
