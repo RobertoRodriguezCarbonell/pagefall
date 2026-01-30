@@ -19,6 +19,10 @@ import TextAlign from "@tiptap/extension-text-align";
 import SubscriptExtension from "@tiptap/extension-subscript";
 import SuperscriptExtension from "@tiptap/extension-superscript";
 import Mention from "@tiptap/extension-mention";
+import Collaboration from '@tiptap/extension-collaboration'
+import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
+import { HocuspocusProvider } from '@hocuspocus/provider'
+import * as Y from 'yjs'
 import { DOMParser } from "@tiptap/pm/model";
 import { AISuggestion } from "@/lib/tiptap-ai-suggestion";
 import { CommentMark } from "@/lib/tiptap-comment-mark";
@@ -29,7 +33,7 @@ import { searchTasks } from "@/server/search";
 import tippy from "tippy.js";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -167,12 +171,39 @@ const RichTextEditor = ({ content, noteId, notebookId, noteTitle, className, com
   const [isUploading, setIsUploading] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const editor = useEditor({
-    extensions: [
-      StarterKit,
-      Document,
-      Paragraph,
-      Text,
+  // Stable user color for collaboration
+  const [userColor] = useState(() => '#' + Math.floor(Math.random()*16777215).toString(16));
+  const [userName] = useState('User'); // Todo: extend to use actual user name
+
+  // Collaboration setup
+  const ydoc = useMemo(() => new Y.Doc(), []);
+  const [provider, setProvider] = useState<HocuspocusProvider | null>(null);
+
+  useEffect(() => {
+    if (!noteId) return;
+
+    const newProvider = new HocuspocusProvider({
+       url: 'ws://localhost:1234',
+       name: noteId,
+       document: ydoc,
+    });
+    
+    setProvider(newProvider);
+
+    return () => {
+      newProvider.destroy();
+    }
+  }, [noteId, ydoc]);
+
+  const extensions = useMemo(() => {
+    const baseExtensions = [
+      StarterKit.configure({
+        // @ts-ignore
+        history: false,
+      }),
+      Collaboration.configure({
+        document: ydoc,
+      }),
       AISuggestion,
       CommentMark,
       SlashCommand.configure({
@@ -254,31 +285,43 @@ const RichTextEditor = ({ content, noteId, notebookId, noteTitle, className, com
       ResizableImage.configure({
         allowBase64: true,
       }),
-    ],
+    ];
+
+    if (provider) {
+      baseExtensions.push(
+        CollaborationCursor.configure({
+          provider: provider,
+          user: {
+            name: userName,
+            color: userColor,
+          },
+        })
+      );
+    }
+
+    return baseExtensions;
+  }, [ydoc, provider, notebookId, userColor, userName]);
+
+  const editor = useEditor({
+    extensions: extensions,
     immediatelyRender: false,
     autofocus: !readOnly,
     editable: !readOnly,
     injectCSS: false,
     onUpdate: ({ editor }) => {
-      if (noteId) {
-        // Debounce save to avoid race conditions with mark application
-        if (saveTimeoutRef.current) {
-          clearTimeout(saveTimeoutRef.current);
-        }
-        
-        saveTimeoutRef.current = setTimeout(() => {
-          const content = editor.getJSON();
-          // Send as string to bypass potential server component serialization issues
-          saveNoteContent(noteId, JSON.stringify(content));
-        }, 500); // Wait 500ms before saving
-      }
-      // Check if there are AI suggestions
       const hasSuggestion = editor.state.doc.textContent.length > 0 && 
         editor.isActive('aiSuggestion');
       setHasSuggestions(hasSuggestion);
     },
-    content,
+    shouldRerenderOnTransaction: false, 
   });
+  
+  // Update provider availability if it changes
+  useEffect(() => {
+    if (editor && provider) {
+       // Just to ensure re-render or updates if needed, though extension handles it
+    }
+  }, [editor, provider]);
 
   useEffect(() => {
     if (!editor) return;
@@ -296,6 +339,8 @@ const RichTextEditor = ({ content, noteId, notebookId, noteTitle, className, com
 
   // Log loaded content
   useEffect(() => {
+    // With collaboration, logging initial content prop is less relevant usually, 
+    // but we can keep it for debugging
     if (content) {
 
     }
