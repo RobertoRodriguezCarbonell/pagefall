@@ -389,30 +389,74 @@ const RichTextEditor = ({ content, noteId, notebookId, noteTitle, className, com
                     return;
                   }
                   
+                  // Asegurar que el color no sea negro, blanco ni transparente
+                  const ensureVisibleColor = (color: string) => {
+                    const hex = color.replace('#', '');
+                    const r = parseInt(hex.substr(0, 2), 16);
+                    const g = parseInt(hex.substr(2, 2), 16);
+                    const b = parseInt(hex.substr(4, 2), 16);
+                    
+                    // Si es muy claro (blanco) o muy oscuro (negro), ajustar
+                    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+                    if (luminance > 0.9) return '#3b82f6'; // azul si es muy claro
+                    if (luminance < 0.15) return '#10b981'; // verde si es muy oscuro
+                    
+                    // Si es gris muy claro o muy oscuro, ajustar
+                    const isGray = Math.abs(r - g) < 20 && Math.abs(g - b) < 20 && Math.abs(r - b) < 20;
+                    if (isGray) {
+                      if (luminance > 0.85) return '#6366f1'; // índigo si es gris claro
+                      if (luminance < 0.2) return '#ec4899'; // rosa si es gris oscuro
+                    }
+                    
+                    return color;
+                  };
+                  
+                  const visibleColor = ensureVisibleColor(user.color);
+                  
                   // Crear el elemento del cursor
                   const cursorWidget = document.createElement('span');
                   cursorWidget.className = 'collaboration-cursor';
-                  cursorWidget.style.borderLeft = `2px solid ${user.color}`;
-                  cursorWidget.style.height = '1.2em';
-                  cursorWidget.style.position = 'relative';
-                  cursorWidget.style.display = 'inline-block';
-                  cursorWidget.style.pointerEvents = 'none';
-                  cursorWidget.style.marginLeft = '-1px';
+                  cursorWidget.style.cssText = `
+                    position: relative;
+                    display: inline-block;
+                    height: 1.4em;
+                    margin-left: -2px;
+                    margin-right: -2px;
+                    pointer-events: none;
+                    user-select: none;
+                    border-left: 2.5px solid ${visibleColor};
+                    animation: cursor-blink 1s ease-in-out infinite;
+                    box-shadow: 0 0 8px ${visibleColor}40;
+                  `;
                   
                   // Crear etiqueta con nombre
                   const label = document.createElement('span');
                   label.className = 'collaboration-cursor__label';
-                  label.style.backgroundColor = user.color;
-                  label.style.color = 'white';
-                  label.style.padding = '2px 6px';
-                  label.style.borderRadius = '4px 4px 4px 0';
-                  label.style.fontSize = '11px';
-                  label.style.fontWeight = '600';
-                  label.style.position = 'absolute';
-                  label.style.top = '-1.6em';
-                  label.style.left = '-1px';
-                  label.style.whiteSpace = 'nowrap';
-                  label.style.zIndex = '10';
+                  label.style.cssText = `
+                    position: absolute;
+                    top: -2.1em;
+                    left: -2px;
+                    background: ${visibleColor};
+                    color: #ffffff;
+                    padding: 3px 8px;
+                    border-radius: 6px 6px 6px 0;
+                    font-size: 10.5px;
+                    font-weight: 600;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    line-height: 1;
+                    white-space: nowrap;
+                    pointer-events: none;
+                    user-select: none;
+                    z-index: 1000;
+                    box-shadow: 
+                      0 2px 8px rgba(0, 0, 0, 0.15),
+                      0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+                    letter-spacing: 0.01em;
+                    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+                    transform: translateY(0);
+                    transition: opacity 0.2s ease, transform 0.2s ease;
+                    opacity: 1;
+                  `;
                   label.textContent = user.name;
                   
                   cursorWidget.appendChild(label);
