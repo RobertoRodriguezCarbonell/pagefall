@@ -1,6 +1,16 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* ProseMirror base styles */
+.ProseMirror {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.ProseMirror p {
+  margin: 0;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -236,28 +246,36 @@
 .dark .ProseMirror.show-comments span[data-comment-id]:hover {
   background-color: rgba(251, 191, 36, 0.4) !important;
 }
-/* Tiptap Collaboration Cursor */
+/* Tiptap Collaboration Cursors - Estilos mejorados y más visibles */
 .collaboration-cursor__caret {
-  position: relative;
+  border-left: 2px solid;
+  border-right: 2px solid;
   margin-left: -1px;
   margin-right: -1px;
-  border-left: 1px solid #0D0D0D;
-  border-right: 1px solid #0D0D0D;
-  word-break: normal;
   pointer-events: none;
+  position: relative;
+  word-break: normal;
+  height: 1.2em;
+  display: inline-block;
 }
 
 .collaboration-cursor__label {
-  position: absolute;
-  top: -1.4em;
-  left: -1px;
-  font-size: 12px;
+  border-radius: 4px 4px 4px 0;
+  color: white;
+  font-size: 11px;
   font-style: normal;
   font-weight: 600;
+  left: -1px;
   line-height: normal;
+  padding: 2px 6px;
+  position: absolute;
+  top: -1.6em;
   user-select: none;
-  color: #fff;
-  padding: 0.1rem 0.3rem;
-  border-radius: 3px 3px 3px 0;
   white-space: nowrap;
+  z-index: 10;
+}
+
+.collaboration-cursor__selection {
+  opacity: 0.3;
+  pointer-events: none;
 }

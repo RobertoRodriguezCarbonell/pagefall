@@ -20,9 +20,11 @@ import SubscriptExtension from "@tiptap/extension-subscript";
 import SuperscriptExtension from "@tiptap/extension-superscript";
 import Mention from "@tiptap/extension-mention";
 import Collaboration from '@tiptap/extension-collaboration'
-import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import * as Y from 'yjs'
+import { Extension } from '@tiptap/core'
+import { Plugin, PluginKey } from '@tiptap/pm/state'
+import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import { DOMParser } from "@tiptap/pm/model";
 import { AISuggestion } from "@/lib/tiptap-ai-suggestion";
 import { CommentMark } from "@/lib/tiptap-comment-mark";
@@ -171,16 +173,25 @@ const RichTextEditor = ({ content, noteId, notebookId, noteTitle, className, com
   const [isUploading, setIsUploading] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Stable user color for collaboration
-  const [userColor] = useState(() => '#' + Math.floor(Math.random()*16777215).toString(16));
-  const [userName] = useState('User'); // Todo: extend to use actual user name
+  // Stable user color for collaboration (solo en cliente para evitar hydration mismatch)
+  const [userColor, setUserColor] = useState('#808080');
+  const [userName, setUserName] = useState('User');
+  
+  useEffect(() => {
+    // Generar color y nombre solo en el cliente
+    setUserColor('#' + Math.floor(Math.random()*16777215).toString(16));
+    setUserName('User-' + Math.random().toString(36).substring(2, 6).toUpperCase());
+  }, []);
 
   // Collaboration setup
   const ydoc = useMemo(() => new Y.Doc(), []);
   const [provider, setProvider] = useState<HocuspocusProvider | null>(null);
+  const providerRef = useRef<HocuspocusProvider | null>(null);
 
   useEffect(() => {
-    if (!noteId) return;
+    if (!noteId || !userName || !userColor) return;
+
+    console.log('🔵 Creating provider for noteId:', noteId, 'user:', userName, 'color:', userColor);
 
     const newProvider = new HocuspocusProvider({
        url: 'ws://localhost:1234',
@@ -188,18 +199,59 @@ const RichTextEditor = ({ content, noteId, notebookId, noteTitle, className, com
        document: ydoc,
     });
     
+    // Event listeners para debugging
+    newProvider.on('status', (event: any) => {
+      console.log('📡 Provider status:', event.status);
+    });
+    
+    newProvider.on('connect', () => {
+      console.log('✅ Provider connected!');
+    });
+    
+    newProvider.on('disconnect', () => {
+      console.log('❌ Provider disconnected');
+    });
+    
+    newProvider.on('synced', () => {
+      console.log('🔄 Provider synced');
+    });
+    
+    // Configurar awareness con información del usuario para los cursores
+    if (newProvider.awareness) {
+      newProvider.awareness.setLocalStateField('user', {
+        name: userName,
+        color: userColor,
+      });
+      
+      console.log('👤 Awareness set:', { name: userName, color: userColor });
+      
+      // Log de estados del awareness
+      newProvider.awareness.on('change', () => {
+        const states = Array.from(newProvider.awareness!.getStates().entries());
+        console.log('👥 Awareness changed! Total users:', states.length);
+        states.forEach(([clientId, state]) => {
+          console.log(`  - Client ${clientId}:`, state.user);
+        });
+      });
+    }
+    
     setProvider(newProvider);
+    providerRef.current = newProvider;
 
     return () => {
+      console.log('🔴 Destroying provider');
       newProvider.destroy();
+      providerRef.current = null;
     }
-  }, [noteId, ydoc]);
+  }, [noteId, ydoc, userName, userColor]);
 
   const extensions = useMemo(() => {
     const baseExtensions = [
       StarterKit.configure({
         // @ts-ignore
         history: false,
+        link: false,
+        underline: false,
       }),
       Collaboration.configure({
         document: ydoc,
@@ -287,20 +339,182 @@ const RichTextEditor = ({ content, noteId, notebookId, noteTitle, className, com
       }),
     ];
 
-    if (provider) {
-      baseExtensions.push(
-        CollaborationCursor.configure({
-          provider: provider,
-          user: {
-            name: userName,
-            color: userColor,
-          },
-        })
-      );
-    }
+    // Extensión personalizada para cursores de colaboración
+    const CursorExtension = Extension.create({
+      name: 'collaborationCursor',
+      
+      addProseMirrorPlugins() {
+        // Usar providerRef para acceder al provider actual
+        return [
+          new Plugin({
+            key: new PluginKey('collaborationCursor'),
+            
+            state: {
+              init() {
+                console.log('🎬 Inicializando estado del plugin de cursores');
+                return DecorationSet.empty;
+              },
+              
+              apply(tr, decorationSet, oldState, newState) {
+                console.log('⚙️ Apply llamado en plugin de cursores');
+                
+                // Obtener awareness del providerRef actual
+                const currentProvider = providerRef.current;
+                if (!currentProvider || !currentProvider.awareness) {
+                  console.log('⚠️ Provider o awareness no disponible en apply');
+                  return DecorationSet.empty;
+                }
+                
+                const awareness = currentProvider.awareness;
+                const decorations: Decoration[] = [];
+                const doc = newState.doc;
+                
+                console.log('✅ Awareness disponible, procesando cursores...');
+                console.log('📊 Estados en awareness:', awareness.getStates().size);
+                
+                awareness.getStates().forEach((state: any, clientId: number) => {
+                  // No mostrar mi propio cursor
+                  if (clientId === awareness.clientID) {
+                    console.log(`⏭️ Saltando mi propio cursor (clientId: ${clientId})`);
+                    return;
+                  }
+                  
+                  const user = state.user;
+                  const cursor = state.cursor;
+                  
+                  console.log(`🔍 Procesando cliente ${clientId}:`, { user, cursor });
+                  
+                  if (!user?.name || !cursor || cursor.head == null) {
+                    console.log(`⏭️ Cursor incompleto para cliente ${clientId}`);
+                    return;
+                  }
+                  
+                  // Crear el elemento del cursor
+                  const cursorWidget = document.createElement('span');
+                  cursorWidget.className = 'collaboration-cursor';
+                  cursorWidget.style.borderLeft = `2px solid ${user.color}`;
+                  cursorWidget.style.height = '1.2em';
+                  cursorWidget.style.position = 'relative';
+                  cursorWidget.style.display = 'inline-block';
+                  cursorWidget.style.pointerEvents = 'none';
+                  cursorWidget.style.marginLeft = '-1px';
+                  
+                  // Crear etiqueta con nombre
+                  const label = document.createElement('span');
+                  label.className = 'collaboration-cursor__label';
+                  label.style.backgroundColor = user.color;
+                  label.style.color = 'white';
+                  label.style.padding = '2px 6px';
+                  label.style.borderRadius = '4px 4px 4px 0';
+                  label.style.fontSize = '11px';
+                  label.style.fontWeight = '600';
+                  label.style.position = 'absolute';
+                  label.style.top = '-1.6em';
+                  label.style.left = '-1px';
+                  label.style.whiteSpace = 'nowrap';
+                  label.style.zIndex = '10';
+                  label.textContent = user.name;
+                  
+                  cursorWidget.appendChild(label);
+                  
+                  try {
+                    const pos = Math.min(Math.max(0, cursor.head), doc.content.size);
+                    decorations.push(
+                      Decoration.widget(pos, cursorWidget, { 
+                        side: 1, 
+                        key: `cursor-${clientId}` 
+                      })
+                    );
+                    console.log(`👆 Cursor creado para ${user.name} en posición ${pos}`);
+                  } catch (e) {
+                    console.error('❌ Error creating cursor decoration:', e);
+                  }
+                });
+                
+                console.log(`📍 Total cursores creados: ${decorations.length}`);
+                return DecorationSet.create(doc, decorations);
+              },
+            },
+            
+            props: {
+              decorations(state) {
+                return this.getState(state);
+              },
+            },
+            
+            view(editorView) {
+              console.log('🎬 Inicializando view del plugin de cursores...');
+              
+              // Función para obtener el provider actual
+              const getProvider = () => providerRef.current;
+              
+              const awarenessChangeHandler = () => {
+                const currentProvider = getProvider();
+                if (!currentProvider || !currentProvider.awareness) {
+                  console.log('⚠️ Provider no disponible en awarenessChangeHandler');
+                  return;
+                }
+                
+                console.log('🔄 Awareness cambió, actualizando cursores...');
+                console.log('📊 Estados después del cambio:', currentProvider.awareness.getStates().size);
+                
+                // Forzar actualización del estado del plugin
+                const tr = editorView.state.tr;
+                tr.setMeta('addToHistory', false);
+                editorView.dispatch(tr);
+              };
+              
+              // Intentar registrar handler con retry si provider no está listo
+              const tryRegisterHandler = () => {
+                const currentProvider = getProvider();
+                if (currentProvider && currentProvider.awareness) {
+                  currentProvider.awareness.on('change', awarenessChangeHandler);
+                  console.log('✅ Handler registrado en awareness');
+                  return true;
+                }
+                console.log('⏳ Provider aún no listo, reintentando...');
+                return false;
+              };
+              
+              // Intentar inmediatamente
+              if (!tryRegisterHandler()) {
+                // Si falla, reintentar después de un delay
+                const retryTimer = setTimeout(() => {
+                  tryRegisterHandler();
+                }, 100);
+                
+                return {
+                  destroy: () => {
+                    console.log('💥 Destruyendo plugin de cursores...');
+                    clearTimeout(retryTimer);
+                    const currentProvider = getProvider();
+                    if (currentProvider && currentProvider.awareness) {
+                      currentProvider.awareness.off('change', awarenessChangeHandler);
+                    }
+                  }
+                };
+              }
+              
+              return {
+                destroy: () => {
+                  console.log('💥 Destruyendo plugin de cursores...');
+                  const currentProvider = getProvider();
+                  if (currentProvider && currentProvider.awareness) {
+                    currentProvider.awareness.off('change', awarenessChangeHandler);
+                  }
+                }
+              };
+            },
+          }),
+        ];
+      },
+    });
+    
+    baseExtensions.push(CursorExtension);
+    console.log('✨ Custom CursorExtension added to editor');
 
     return baseExtensions;
-  }, [ydoc, provider, notebookId, userColor, userName]);
+  }, [ydoc, provider, notebookId, userName, userColor]);
 
   const editor = useEditor({
     extensions: extensions,
@@ -312,16 +526,29 @@ const RichTextEditor = ({ content, noteId, notebookId, noteTitle, className, com
       const hasSuggestion = editor.state.doc.textContent.length > 0 && 
         editor.isActive('aiSuggestion');
       setHasSuggestions(hasSuggestion);
+      
+      // Actualizar posición del cursor en awareness
+      if (provider?.awareness) {
+        const { from, to } = editor.state.selection;
+        provider.awareness.setLocalStateField('cursor', {
+          anchor: from,
+          head: to,
+        });
+        console.log('🖱️ Cursor actualizado:', { from, to, user: userName });
+      }
+    },
+    onSelectionUpdate: ({ editor }) => {
+      // También actualizar cuando cambia la selección sin editar
+      if (provider?.awareness) {
+        const { from, to } = editor.state.selection;
+        provider.awareness.setLocalStateField('cursor', {
+          anchor: from,
+          head: to,
+        });
+      }
     },
     shouldRerenderOnTransaction: false, 
   });
-  
-  // Update provider availability if it changes
-  useEffect(() => {
-    if (editor && provider) {
-       // Just to ensure re-render or updates if needed, though extension handles it
-    }
-  }, [editor, provider]);
 
   useEffect(() => {
     if (!editor) return;
