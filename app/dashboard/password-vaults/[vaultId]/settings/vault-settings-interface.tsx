@@ -86,6 +86,7 @@ export function VaultSettingsInterface({ vault, initialMembers }: VaultSettingsI
     const router = useRouter();
     const [members, setMembers] = useState<VaultMember[]>(initialMembers);
     const [isDeletingVault, setIsDeletingVault] = useState(false);
+    const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
 
     const handlePermissionChange = async (memberId: string, type: 'canEdit' | 'canCreate' | 'canDelete', checked: boolean) => {
         // Optimistic update
@@ -117,17 +118,20 @@ export function VaultSettingsInterface({ vault, initialMembers }: VaultSettingsI
         }
     };
 
-    const handleRemoveMember = async (memberId: string) => {
+    const confirmRemoveMember = async () => {
+        if (!memberToRemove) return;
         try {
-            const result = await removeVaultMember(memberId);
+            const result = await removeVaultMember(memberToRemove);
             if (result.success) {
-                setMembers(members.filter(m => m.id !== memberId));
+                setMembers(members.filter(m => m.id !== memberToRemove));
                 toast.success("Member removed");
             } else {
                 toast.error(result.error || "Failed to remove member");
             }
         } catch (error) {
             toast.error("Failed to remove member");
+        } finally {
+            setMemberToRemove(null);
         }
     };
 
@@ -247,7 +251,7 @@ export function VaultSettingsInterface({ vault, initialMembers }: VaultSettingsI
                                                 <DropdownMenuContent align="end">
                                                     <DropdownMenuItem 
                                                         className="text-destructive focus:text-destructive"
-                                                        onClick={() => handleRemoveMember(member.id)}
+                                                        onClick={() => setMemberToRemove(member.id)}
                                                     >
                                                         <Trash2 className="mr-2 h-4 w-4" /> Remove Member
                                                     </DropdownMenuItem>
@@ -261,6 +265,26 @@ export function VaultSettingsInterface({ vault, initialMembers }: VaultSettingsI
                     </Table>
                 </CardContent>
             </Card>
+
+            <AlertDialog open={!!memberToRemove} onOpenChange={(open) => !open && setMemberToRemove(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Remove Member</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to remove this member? They will lose access to all passwords in this vault.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                            onClick={confirmRemoveMember}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                            Remove
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             <Card className="border-destructive/50 bg-destructive/5">
                 <CardHeader>

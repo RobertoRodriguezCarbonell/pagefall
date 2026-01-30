@@ -28,7 +28,8 @@ import {
   Inbox,
   Check,
   X,
-  Users
+  Users,
+  LogOut
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -81,7 +82,8 @@ import {
     updateVaultEntry, 
     deleteVaultEntry,
     inviteUserToVault,
-    respondToInvitation
+    respondToInvitation,
+    leaveVault
 } from "@/server/vaults"
 
 // Types
@@ -159,6 +161,8 @@ export function VaultInterface({ initialGroups, initialInvitations }: VaultInter
   const [editingEntry, setEditingEntry] = useState<PasswordEntry | null>(null)
   const [isGeneratorSettingsOpen, setIsGeneratorSettingsOpen] = useState(false)
   const [entryToDelete, setEntryToDelete] = useState<string | null>(null)
+  const [inviteToReject, setInviteToReject] = useState<string | null>(null)
+  const [vaultToLeave, setVaultToLeave] = useState<PasswordGroup | null>(null)
   
   // Form States
   const [newGroupName, setNewGroupName] = useState("")
@@ -284,6 +288,24 @@ export function VaultInterface({ initialGroups, initialInvitations }: VaultInter
           toast.error("Failed to respond");
       }
   }
+
+  const handleLeaveVault = async () => {
+        if(!vaultToLeave) return;
+        try {
+            const result = await leaveVault(vaultToLeave.id);
+            if(result.success) {
+                setGroups(groups.filter(g => g.id !== vaultToLeave.id));
+                if(selectedGroupId === vaultToLeave.id) setSelectedGroupId('all');
+                toast.success("Left vault successfully");
+            } else {
+                 toast.error(result.error || "Failed to leave vault");
+            }
+        } catch {
+            toast.error("Failed to leave vault");
+        } finally {
+            setVaultToLeave(null);
+        }
+    }
 
   const handleSaveEntry = async () => {
     if (!entryForm.title || !entryForm.password || !entryForm.username) {
@@ -433,7 +455,7 @@ export function VaultInterface({ initialGroups, initialInvitations }: VaultInter
                       <div key={invite.id} className="p-2 rounded-lg bg-muted/50 text-sm border space-y-2">
                           <div className="font-medium truncate">{invite.group.name}</div>
                           <div className="text-xs text-muted-foreground truncate">from {invite.inviter.name}</div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-col items-center gap-2">
                               <Button 
                                 size="sm" 
                                 className="h-7 w-full text-xs" 
@@ -445,7 +467,7 @@ export function VaultInterface({ initialGroups, initialInvitations }: VaultInter
                                 size="sm" 
                                 variant="outline" 
                                 className="h-7 w-full text-xs" 
-                                onClick={() => handleRespondInvitation(invite.id, false)}
+                                onClick={() => setInviteToReject(invite.id)}
                               >
                                   Reject
                               </Button>
@@ -504,6 +526,22 @@ export function VaultInterface({ initialGroups, initialInvitations }: VaultInter
                         </Button>
                     </Link>
                   </div>
+                 )}
+                 {group.isShared && (
+                    <div className="flex items-center ml-1 opacity-0 group-hover/item:opacity-100 transition-opacity focus-within:opacity-100">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setVaultToLeave(group);
+                            }}
+                            title="Leave Vault"
+                        >
+                            <LogOut className="h-4 w-4" />
+                        </Button>
+                    </div>
                  )}
               </div>
             ))}
@@ -855,6 +893,47 @@ export function VaultInterface({ initialGroups, initialInvitations }: VaultInter
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!inviteToReject} onOpenChange={(open) => !open && setInviteToReject(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Reject Invitation?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Are you sure you want to reject this invitation? You won't be able to access the vault unless invited again.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                    onClick={() => inviteToReject && handleRespondInvitation(inviteToReject, false).then(() => setInviteToReject(null))}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                    Reject
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!vaultToLeave} onOpenChange={(open) => !open && setVaultToLeave(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Leave Vault?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Are you sure you want to leave <span className="font-semibold text-foreground">"{vaultToLeave?.name}"</span>? 
+                    You will lose access to all passwords in this vault.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                    onClick={handleLeaveVault}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                    Leave Vault
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!entryToDelete} onOpenChange={(open) => !open && setEntryToDelete(null)}>
         <AlertDialogContent>

@@ -499,34 +499,3 @@ export const respondToInvitation = async (invitationId: string, accept: boolean)
         return { success: false, error: "Failed to respond to invitation" };
     }
 }
-
-export const leaveVault = async (vaultId: string) => {
-    const session = await auth.api.getSession({
-        headers: await headers()
-    });
-
-    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-
-    try {
-        const result = await db.delete(vaultMembers)
-            .where(
-                and(
-                    eq(vaultMembers.vaultGroupId, vaultId),
-                    eq(vaultMembers.userId, session.user.id)
-                )
-            )
-            .returning(); 
-
-        if (result.length === 0) {
-             // It's possible the user is trying to leave a vault they own (which isn't via membership) or they are already gone.
-             // If they own it, they shouldn't use this function (use deleteVaultGroup).
-             return { success: false, error: "Membership not found" };
-        }
-
-        revalidatePath("/dashboard/password-vaults");
-        return { success: true };
-    } catch (error) {
-        console.error("Leave vault error:", error);
-        return { success: false, error: "Failed to leave vault" };
-    }
-}
